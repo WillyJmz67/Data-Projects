@@ -11,7 +11,6 @@
 ![Plotly](https://img.shields.io/badge/Plotly-Viz-3F4F75?style=flat-square&logo=plotly)
 ![Status](https://img.shields.io/badge/Estado-En%20desarrollo-yellow?style=flat-square)
 
-> ** Demo en vivo:** ️ [COMPLETAR: link de Streamlit Cloud cuando lo despliegues]
 >
 > **📌 Para reclutadores:** este repositorio demuestra un flujo completo de trabajo de un Científico/Ingeniero de Datos: ingesta → calidad de datos → EDA → feature engineering → modelado → persistencia SQL → visualización → consumo del modelo.
 
@@ -49,15 +48,15 @@ Una cadena de **1,115 tiendas** pierde dinero por dos razones: quedarse sin stoc
 ## 🏗️ Arquitectura del Pipeline
 
 ```
-┌──────────────┐   ┌──────────────┐   ┌──────────────┐   ┌──────────────┐
+┌──────────────┐   ┌──────────────┐   ┌──────────────┐     ┌──────────────┐
 │ 1. INGESTA   │──▶│ 2. EDA       │──▶│ 3. FEATURES  │──▶│ 4. MODELO ML │
-│ train+store  │   │ calidad+viz  │   │ 46 columnas  │   │ RF vs XGBoost│
-└──────────────┘   └──────────────┘   └──────────────┘   └──────┬───────┘
-                                                               ▼
-┌──────────────┐   ┌──────────────┐   ┌──────────────┐   ┌──────────────┐
-│ 7. DASHBOARD │◀──│ 6. CONSULTAS │◀──│ 5. PERSIST.  │◀──│ Predicciones │
-│ Streamlit    │   │ SQL insights │   │ SQLite       │   │ + métricas   │
-└──────────────┘   └──────────────┘   └──────────────┘   └──────────────┘
+│ train+store  │   │ calidad+viz  │   │ 46 columnas  │     │ RF vs XGBoost│
+└──────────────┘   └──────────────┘   └──────────────┘     └──────┬───────┘
+                                                                  ▼
+┌──────────────┐    ┌──────────────┐    ┌──────────────┐   ┌──────────────┐
+│ 7. DASHBOARD │◀──│ 6. CONSULTAS │◀── │ 5. PERSIST.  │◀──│ Predicciones │
+│ Streamlit    │    │ SQL insights │    │ SQLite       │   │ + métricas   │
+└──────────────┘    └──────────────┘    └──────────────┘   └──────────────┘
 ```
 
 **Flujo de datos:** CSV (fuentes) → Parquet (capa procesada) → SQLite (capa de consumo) → Streamlit/API (capa de presentación). Esta separación por capas simula una arquitectura Data Lake real.
@@ -167,10 +166,10 @@ Prediccion de demanda/
 
 | Métrica | Random Forest | XGBoost | Significado para el negocio |
 |---|---|---|---|
-| MAE (€) | ⚠️ [COMPLETAR] | ⚠️ [COMPLETAR] | Error promedio en euros por tienda/día |
-| RMSE (€) | ⚠️ [COMPLETAR] | ⚠️ [COMPLETAR] | Penaliza errores grandes (días críticos) |
-| MAPE (%) | ⚠️ [COMPLETAR] | ⚠️ [COMPLETAR] | Precisión porcentual del pronóstico |
-| R² | ⚠️ [COMPLETAR] | ⚠️ [COMPLETAR] | Varianza explicada |
+| MAE (€) | 580.91 | 603.89 | Error promedio en euros por tienda/día |
+| RMSE (€) | 929.85 | 929.12 | Penaliza errores grandes (días críticos) |
+| MAPE (%) | 0.93 | 0.93 | Precisión porcentual del pronóstico |
+| R² | 10.50 | 10.89 | Varianza explicada |
 
 > 💡 *Ejecuta `python src/model.py` para reproducir estas métricas y completa la tabla con tu salida.*
 
@@ -215,7 +214,6 @@ LIMIT 10;
 3. **🤖 Predicciones del Modelo** – predicho vs real, distribución de errores, precisión por tienda.
 4. **🔍 Feature Importance** – qué variables mueven el modelo, con interpretación de negocio.
 
-⚠️ [COMPLETAR: captura de pantalla del dashboard aquí]
 
 ---
 
@@ -271,7 +269,7 @@ Este proyecto enfrentó problemas **reales de producción**, documentados como e
 
 ```bash
 # 1. Clonar repositorio
-git clone https://github.com/⚠️[TU-USUARIO]/⚠️[demanda-ml].git
+git clone https://github.com/user/.git
 cd demanda_ml
 
 # 2. Crear y activar entorno virtual
@@ -329,11 +327,6 @@ uvicorn
 **William** — Ingeniero Mecatrónico en transición a Ciencia de Datos.
 
 Mi formación en mecatrónica me dio una ventaja única: entiendo los procesos físicos e industriales detrás de los datos (sensores, operaciones, mantenimiento). Este portafolio demuestra que combino esa visión de ingeniería con habilidades modernas de datos: Python, SQL, ML, pipelines ETL y visualización.
-
-📬 **Contacto:**
-- GitHub: ⚠️ [COMPLETAR]
-- LinkedIn: ⚠️ [COMPLETAR]
-- Email: ⚠️ [COMPLETAR]
 
 ---
 
