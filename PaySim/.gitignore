@@ -1,0 +1,22 @@
+# --- Entorno virtual ---
+venv/
+.venv/
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+
+# --- Datos ---
+# El CSV de PaySim pesa ~470 MB y no es redistribuible: no se versiona.
+data/
+*.csv
+
+# --- Salidas generadas ---
+output/
+*.parquet/
+data_fraud.parquet/
+*.png
+
+# --- Artefactos de Spark ---
+spark-warehouse/
+metastore_db/
+derby.log

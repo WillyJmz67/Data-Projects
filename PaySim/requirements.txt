@@ -1,0 +1,15 @@
+# PaySim — Detección de fraude en transacciones móviles con PySpark
+#
+# Requisitos del sistema (no instalables con pip):
+#   - Java 17 o 21  ->  Spark NO soporta Java 25 (el que suele venir en el PATH)
+#   - Python 3.10+
+#
+# Instalación:
+#   python -m venv venv
+#   venv\Scripts\activate          (Windows)
+#   pip install -r requirements.txt
+
+pyspark==4.2.0
+pandas>=2.0,<3.0      # PySpark aún no soporta pandas 3.x
+matplotlib>=3.7
+seaborn>=0.13
