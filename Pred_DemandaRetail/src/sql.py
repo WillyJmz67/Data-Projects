@@ -1,32 +1,14 @@
-"""
-=============================================================================
-PASO 6: INTEGRACIÓN CON BASE DE DATOS (SQL)
-=============================================================================
-Contexto de Negocio:
-    En un entorno real, las predicciones no se quedan en un archivo Python.
-    Se almacenan en una base de datos para que otros sistemas (dashboards,
-    ERPs, equipos de logística) puedan consultarlas.
-
-    Aquí simulamos ese flujo:
-    1. Guardamos los datos procesados en SQLite
-    2. Guardamos las predicciones del modelo
-    3. Ejecutamos consultas SQL para extraer insights
-    4. Demostramos que el pipeline es reproducible y consultable
-
-    ¿Por qué SQLite? Es gratuito, no requiere servidor, y demuestra
-    las mismas habilidades SQL que PostgreSQL o MySQL.
-=============================================================================
-"""
+"""Integración con base de datos SQLite: almacena datos procesados y predicciones del modelo."""
 
 import pandas as pd
 import numpy as np
 import sqlite3
 import os
-import pickle
+import sys
 
-# ============================================================
-# CONFIGURACIÓN
-# ============================================================
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from utils import select_feature_cols, load_latest_model  # noqa: E402
+
 OUTPUT_DIR = os.path.join(os.path.dirname(__file__), '..', 'output')
 MODEL_DIR = os.path.join(os.path.dirname(__file__), '..', 'models')
 DB_DIR = os.path.join(os.path.dirname(__file__), '..', 'db')
@@ -38,34 +20,21 @@ print("=" * 60)
 print("PASO 6: INTEGRACIÓN CON BASE DE DATOS SQL")
 print("=" * 60)
 
-# ============================================================
-# 6.1 CARGAR DATOS Y MODELO
-# ============================================================
 print("\n📂 Cargando datos y modelo...")
 df = pd.read_parquet(os.path.join(OUTPUT_DIR, 'dataset_procesado.parquet'))
 
-# Buscar el modelo guardado
-model_files = [f for f in os.listdir(MODEL_DIR) if f.endswith('.pkl')]
-if model_files:
-    model_path = os.path.join(MODEL_DIR, model_files[0])
-    with open(model_path, 'rb') as f:
-        model = pickle.load(f)
-    print(f"   ✅ Modelo cargado: {model_files[0]}")
-else:
-    print("   ⚠️ No se encontró modelo. Ejecuta step5_model.py primero.")
+try:
+    model, model_file = load_latest_model(MODEL_DIR)
+    print(f"   ✅ Modelo cargado: {model_file}")
+except FileNotFoundError as exc:
+    print(f"   ⚠️ {exc}")
     model = None
 
-# ============================================================
-# 6.2 CREAR BASE DE DATOS Y TABLAS
-# ============================================================
 print("\n🔧 Creando base de datos SQLite...")
 
-# Conectar (crea el archivo si no existe)
 conn = sqlite3.connect(DB_PATH)
 cursor = conn.cursor()
 
-# Tabla 1: Datos históricos procesados
-# ¿Por qué? Almacena el dataset limpio para consultas futuras.
 cursor.execute('DROP TABLE IF EXISTS historical_data')
 cursor.execute('''
     CREATE TABLE IF NOT EXISTS historical_data (
@@ -85,9 +54,6 @@ cursor.execute('''
     )
 ''')
 
-# Tabla 2: Predicciones del modelo
-# ¿Por qué? Las predicciones se almacenan por separado para que
-# el equipo de logística las consulte sin tocar los datos crudos.
 cursor.execute('DROP TABLE IF EXISTS predictions')
 cursor.execute('''
     CREATE TABLE IF NOT EXISTS predictions (
@@ -102,9 +68,6 @@ cursor.execute('''
     )
 ''')
 
-# Tabla 3: Métricas del modelo (auditoría)
-# ¿Por qué? En producción, necesitas rastrear qué versión del modelo
-# generó cada predicción y qué tan preciso fue.
 cursor.execute('DROP TABLE IF EXISTS model_metrics')
 cursor.execute('''
     CREATE TABLE IF NOT EXISTS model_metrics (
@@ -119,13 +82,8 @@ cursor.execute('''
 conn.commit()
 print("   ✅ Tablas creadas: historical_data, predictions, model_metrics")
 
-# ============================================================
-# 6.3 INSERTAR DATOS HISTÓRICOS
-# ============================================================
 print("\n📝 Insertando datos históricos...")
 
-# ✅ CORRECCIÓN: Mapear nombres del DataFrame a nombres de la tabla SQL
-# El DataFrame tiene 'Store' pero la tabla espera 'store_id'
 cols_mapping = {
     'Store': 'store_id',
     'Date': 'date',
@@ -141,48 +99,33 @@ cols_mapping = {
     'Promo2': 'promo2'
 }
 
-# Seleccionar solo las columnas que existen en el DataFrame
 available_cols = {k: v for k, v in cols_mapping.items() if k in df.columns}
 insert_df = df[list(available_cols.keys())].copy()
 
-# Renombrar columnas para que coincidan con la tabla SQL
 insert_df.rename(columns=available_cols, inplace=True)
 
-# Convertir Date a string (SQLite no tiene tipo DATE nativo)
 insert_df['date'] = insert_df['date'].astype(str)
 
-# Insertar en bloques
 insert_df.to_sql('historical_data', conn, if_exists='append', index=False, chunksize=5000)
 print(f"   ✅ {len(insert_df):,} filas insertadas en historical_data")
 
-# ============================================================
-# 6.4 GENERAR Y ALMACENAR PREDICCIONES
-# ============================================================
 if model is not None:
     print("\n📝 Generando predicciones y almacenando...")
 
-    # Usar el último 15% de datos como "test"
+    # Mismo corte temporal que model.py (cuantil 0.85 de la fecha). Antes aquí se
+    # usaba iloc[int(len*0.85)], que con filas desbalanceadas por día deja un test
+    # distinto al de model.py: las métricas de la tabla predictions no cuadraban
+    # con las de metricas_modelo.txt.
     df_sorted = df.sort_values('Date')
-    split_idx = int(len(df_sorted) * 0.85)
-    test_data = df_sorted.iloc[split_idx:].copy()
+    split_date = df_sorted['Date'].quantile(0.85)
+    test_data = df_sorted[df_sorted['Date'] > split_date].copy()
 
-    # Obtener features (mismas que en step5)
-    exclude_cols = [
-        'Store', 'Date', 'Sales', 'Customers',
-        'Open', 'Promo2SinceWeek', 'Promo2SinceYear',
-        'CompetitionOpenSinceMonth', 'CompetitionOpenSinceYear',
-        'StateHoliday', 'SchoolHoliday',
-    ]
-    feature_cols = [
-        col for col in df.select_dtypes(include=[np.number]).columns
-        if col not in exclude_cols
-    ]
+    feature_cols = select_feature_cols(df)
 
     X_test = test_data[feature_cols]
     test_data['predicted_sales'] = model.predict(X_test)
     test_data['error'] = test_data['predicted_sales'] - test_data['Sales']
 
-    # Preparar datos para inserción
     pred_df = pd.DataFrame({
         'store_id': test_data['Store'],
         'date': test_data['Date'].astype(str),
@@ -195,7 +138,6 @@ if model is not None:
     pred_df.to_sql('predictions', conn, if_exists='append', index=False, chunksize=5000)
     print(f"   ✅ {len(pred_df):,} predicciones insertadas")
 
-    # Insertar métricas
     mae = np.mean(np.abs(test_data['error']))
     rmse = np.sqrt(np.mean(test_data['error'] ** 2))
     mask = test_data['Sales'] > 0
@@ -213,16 +155,10 @@ if model is not None:
     conn.commit()
     print(f"   ✅ Métricas del modelo insertadas")
 
-# ============================================================
-# 6.5 CONSULTAS SQL DE VALIDACIÓN
-# ============================================================
-# ¿Por qué? Esto demuestra que puedes extraer insights directamente
-# con SQL, una habilidad CRÍTICA para cualquier rol de datos.
 print("\n" + "=" * 60)
 print("🔍 CONSULTAS SQL DE VALIDACIÓN")
 print("=" * 60)
 
-# Consulta 1: Ventas totales por tienda (Top 10)
 print("\n📊 Consulta 1: Top 10 tiendas por ventas totales")
 query1 = """
     SELECT
@@ -239,7 +175,6 @@ query1 = """
 result1 = pd.read_sql_query(query1, conn)
 print(result1.to_string(index=False))
 
-# Consulta 2: Ventas por día de la semana
 print("\n📊 Consulta 2: Ventas promedio por día de la semana")
 query2 = """
     SELECT
@@ -261,7 +196,6 @@ query2 = """
 result2 = pd.read_sql_query(query2, conn)
 print(result2.to_string(index=False))
 
-# Consulta 3: Precisión del modelo por tienda
 if model is not None:
     print("\n📊 Consulta 3: Precisión del modelo por tienda (Top 10 con más error)")
     query3 = """
@@ -279,7 +213,6 @@ if model is not None:
     result3 = pd.read_sql_query(query3, conn)
     print(result3.to_string(index=False))
 
-# Consulta 4: Predicciones vs ventas reales (muestra)
 if model is not None:
     print("\n📊 Consulta 4: Muestra de predicciones vs ventas reales")
     query4 = """
@@ -302,7 +235,6 @@ if model is not None:
     result4 = pd.read_sql_query(query4, conn)
     print(result4.to_string(index=False))
 
-# Consulta 5: Métricas del modelo
 print("\n📊 Consulta 5: Métricas del modelo")
 query5 = """
     SELECT
@@ -316,12 +248,9 @@ query5 = """
 result5 = pd.read_sql_query(query5, conn)
 print(result5.to_string(index=False))
 
-# ============================================================
-# 6.6 CERRAR CONEXIÓN Y RESUMEN
-# ============================================================
 conn.close()
 
-db_size = os.path.getsize(DB_PATH) / (1024 * 1024)  # Convertir a MB
+db_size = os.path.getsize(DB_PATH) / (1024 * 1024)
 
 summary = f"""
 RESUMEN DE INTEGRACIÓN SQL
@@ -341,16 +270,6 @@ Consultas de validación ejecutadas:
   ✅ Precisión del modelo por tienda
   ✅ Muestra de predicciones vs reales
   ✅ Métricas del modelo
-
-JUSTIFICACIÓN DE NEGOCIO:
-  En un entorno de producción, esta base de datos sería consumida por:
-  - Dashboards de Power BI / Metabase
-  - Sistemas ERP para planificación de inventario
-  - Equipos de logística para programación de entregas
-  - APIs para consultas en tiempo real
-
-  La tabla model_metrics permite auditoría y monitoreo del modelo,
-  cumpliendo con las prácticas de MLOps y gobernanza de datos.
 """
 print(summary)
 

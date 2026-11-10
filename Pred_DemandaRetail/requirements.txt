@@ -1,11 +1,28 @@
-pandas
-numpy
-scikit-learn
-xgboost
-matplotlib
-seaborn
-streamlit
-plotly
-pyarrow
-fastapi
-uvicorn
+# Predicción de Demanda Retail — dependencias del proyecto
+#
+# Instalación (desde la raíz del proyecto):
+#   python -m venv venv
+#   venv\Scripts\activate        # Windows
+#   pip install -r requirements.txt
+
+# --- Datos ---
+pandas>=2.0
+numpy>=1.24
+pyarrow>=12.0
+
+# --- Machine Learning ---
+scikit-learn>=1.3
+xgboost>=2.0
+
+# --- Visualización ---
+matplotlib>=3.7
+seaborn>=0.12
+plotly>=5.18
+
+# --- Persistencia ---
+sqlalchemy>=2.0
+
+# --- Dashboard y API ---
+streamlit>=1.30
+fastapi>=0.110
+uvicorn>=0.27

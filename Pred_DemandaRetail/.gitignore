@@ -1,0 +1,25 @@
+# --- Entorno virtual ---
+venv/
+.venv/
+__pycache__/
+*.py[cod]
+
+# --- Datos crudos (Kaggle, no redistribuibles) ---
+data/*.csv
+
+# --- Artefactos regenerables ---
+# Se regeneran con: features.py -> model.py -> sql.py
+output/dataset_procesado.parquet
+output/dataset_procesado.csv
+output/prediccion_tienda_*.csv
+output/*.png
+output/*.txt
+models/*.joblib
+models/*.pkl
+db/*.db
+
+# --- IDE / sistema ---
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
