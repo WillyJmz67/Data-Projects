@@ -1,4 +1,4 @@
-"""Ingesta: lee datos cruros NASA CMAPSS (txt) y guarda como Parquet."""
+"""Ingesta: lee datos crudos NASA CMAPSS (txt) y guarda como Parquet."""
 
 from pathlib import Path
 
@@ -30,8 +30,8 @@ def ingest(path_raw: str | Path, path_out: str | Path | None = None) -> pd.DataF
     if n_fields != len(COLUMNS):
         raise ValueError(
             f"{path_raw.name}: se esperaban {len(COLUMNS)} columnas "
-            f"pero tiene {n_fields}. Verifica que sea el archivo de "
-            f"ENTRENAMIENTO (ej. FD001_train.txt). "
+            f"pero tiene {n_fields}. Verifica que sea un archivo de "
+            f"LECTURAS (ej. train_FD001.txt o test_FD001.txt). "
             f"RUL_FD001.txt es el ground-truth del test set y no se usa aquí."
         )
 
@@ -43,4 +43,8 @@ def ingest(path_raw: str | Path, path_out: str | Path | None = None) -> pd.DataF
 
 if __name__ == "__main__":
     for txt in RAW_DIR.glob("*.txt"):
-        ingest(txt)
+        # Los RUL_FD00X.txt tienen 1 columna y no son lecturas: se omiten.
+        try:
+            ingest(txt)
+        except ValueError as e:
+            print(f"[omitido] {e}")

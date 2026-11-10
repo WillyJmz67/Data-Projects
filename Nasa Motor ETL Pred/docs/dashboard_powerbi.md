@@ -14,7 +14,7 @@ El script `src/add_predictions.py` unió train y test de los 4 escenarios, recon
 RUL real del test y agregó la predicción del modelo:
 
 ```
-proyecto-etl-predictivo/data/curated/dashboard_data.parquet
+data/curated/dashboard_data.parquet
 ```
 
 Columnas disponibles: `id, cycle, op1-3, s1-21, rul, label, scenario, conjunto, rul_predicho, error`.
@@ -32,9 +32,11 @@ Columnas disponibles: `id, cycle, op1-3, s1-21, rul, label, scenario, conjunto, 
 1. Abre **Power BI Desktop**.
 2. Barra superior → **Obtener datos** → **Más…** → filtra por *Parquet* → **Archivo de Parquet** → **Conectar**.
 3. Selecciona `data/curated/dashboard_data.parquet`.
-4. En el editor previo (Power Query) verás las 28 columnas. Pulsa **Cargar**.
+4. En el editor previo (Power Query) verás las 32 columnas. Pulsa **Cargar**.
 
 > Si prefieres la versión de ejemplo pequeña, usa `data/curated/sample_FD001_train.parquet`.
+> Ojo: esa muestra sólo trae 7 filas y **no** tiene `scenario`, `conjunto` ni
+> `rul_predicho`, así que las medidas DAX y el panel Real vs Predicho no funcionarán con ella.
 
 ---
 
@@ -42,40 +44,42 @@ Columnas disponibles: `id, cycle, op1-3, s1-21, rul, label, scenario, conjunto, 
 En la cinta **Modelado** → **Nueva medida**. Pega cada una:
 
 ```DAX
-Motores_Total = DISTINCTCOUNT(all_scenarios[id])
+Motores_Total = DISTINCTCOUNT(dashboard_data[id])
 ```
 
 ```DAX
-RUL_Promedio = AVERAGE(all_scenarios[rul])
+RUL_Promedio = AVERAGE(dashboard_data[rul])
 ```
 
 ```DAX
-%_Ciclos_Riesgo = DIVIDE( SUM(all_scenarios[label]), COUNTROWS(all_scenarios) )
+%_Ciclos_Riesgo = DIVIDE( SUM(dashboard_data[label]), COUNTROWS(all_scenarios) )
 ```
 
 ```DAX
 Motores_Riesgo =
 CALCULATE(
-    DISTINCTCOUNT(all_scenarios[id]),
-    FILTER(all_scenarios, all_scenarios[rul] <= 30)
+    DISTINCTCOUNT(dashboard_data[id]),
+    FILTER(all_scenarios, dashboard_data[rul] <= 30)
 )
 ```
 
 ```DAX
-RUL_Minimo = MIN(all_scenarios[rul])
+RUL_Minimo = MIN(dashboard_data[rul])
 ```
 
 ```DAX
 RMSE_RUL =
 SQRT(
     DIVIDE(
-        SUMX(all_scenarios, (all_scenarios[rul_predicho] - all_scenarios[rul]) ^ 2),
+        SUMX(all_scenarios, (dashboard_data[rul_predicho] - dashboard_data[rul]) ^ 2),
         COUNTROWS(all_scenarios)
     )
 )
 ```
 
-> Sustituye `all_scenarios` por el nombre real de tu tabla si Power BI lo renombró.
+> Power BI nombra la tabla a partir del fichero cargado, así que al abrir
+> `dashboard_data.parquet` la tabla se llama **`dashboard_data`** (de ahí las
+> medidas de arriba). Si la renombras en Power Query, ajusta las medidas.
 
 ---
 
@@ -122,6 +126,7 @@ Arrastra estos objetos desde el panel **Visualizaciones**:
 ---
 
 ## 5. Siguiente nivel (opcional)
-- Añadir columna `rul_predicho` desde `models/modelo_rul.joblib` para comparar real vs predicho.
+- Servir las predicciones desde un job batch orquestado por Airflow (hoy `rul_predicho`
+  se calcula offline con `src/add_predictions.py`).
 - Publicar en **Power BI Service** y programar actualización vía gateway.
 - Conectar el origen a **S3 / Athena** en vez de Parquet local (nivel nube AWS).

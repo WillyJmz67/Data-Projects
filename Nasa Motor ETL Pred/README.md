@@ -59,30 +59,38 @@ PySpark → S3 (Parquet) → AWS Glue Data Catalog → Amazon Athena → BI.
 ```
 proyecto-etl-predictivo/
 ├── data/
-│   ├── raw/          # archivos .txt originales (NASA)
+│   ├── raw/          # .txt originales de NASA (+ sample_FD001_train.txt de ejemplo)
 │   ├── processed/    # Parquet tras ingesta
-│   └── curated/      # Parquet enriquecido con RUL (+ all_scenarios.parquet)
+│   └── curated/      # Parquet con RUL/label (+ all_scenarios y dashboard_data)
 ├── src/
-│   ├── config.py     # rutas y columnas centralizadas
+│   ├── config.py     # rutas, columnas y FEATURES centralizadas
 │   ├── ingest.py     # lectura cruda -> Parquet
 │   ├── transform.py  # RUL + etiqueta (pandas y spark)
 │   ├── validate.py   # controles de calidad
 │   ├── main.py       # orquestador local
+│   ├── train_model.py             # entrena y guarda los modelos (comprimidos)
 │   ├── prepare_dashboard_data.py  # une los 4 escenarios para Power BI
-│   ├── add_predictions.py          # añade rul_predicho (modelo) al dataset del dashboard
-│   ├── warehouse.py                # carga a Data Warehouse (Postgres=Redshift) + cuadratura
-│   └── glue_job.py                 # TEMPLATE de AWS Glue Job (PySpark) para la nube
+│   ├── add_predictions.py         # añade rul_predicho (modelo) al dataset del dashboard
+│   ├── warehouse.py               # carga a Data Warehouse (Postgres=Redshift) + cuadratura
+│   └── glue_job.py                # TEMPLATE de AWS Glue Job (PySpark) para la nube
 ├── dags/
 │   └── etl_pipeline.py  # DAG de Airflow
 ├── notebooks/
 │   ├── 01_exploracion.ipynb   # EDA de datos curated
 │   └── 02_modelo.ipynb        # Modelo ML (clasificación + regresión RUL)
-├── models/                    # modelos entrenados (.joblib)
+├── docs/
+│   └── dashboard_powerbi.md   # guía paso a paso del dashboard
+├── models/                    # modelos entrenados (.joblib, comprimidos y versionados)
 ├── tests/
+│   ├── conftest.py
 │   ├── test_ingest.py
 │   ├── test_transform.py
-│   └── test_validate.py
-├── docker-compose.yml   # Airflow local
+│   ├── test_validate.py
+│   ├── test_prepare_dashboard.py
+│   ├── test_add_predictions.py
+│   └── test_warehouse.py
+├── .gitignore
+├── docker-compose.yml   # Airflow + Postgres warehouse (local)
 ├── requirements.txt
 └── README.md
 ```
@@ -101,20 +109,36 @@ pip install -r requirements.txt
 # 3. Ejecutar pipeline completo (ingesta -> transforma -> valida)
 python -m src.main
 
-# 4. Correr pruebas unitarias
+# 4. Entrenar los modelos (ya vienen en models/; esto los regenera)
+python -m src.train_model
+
+# 5. (Opcional) Dataset con predicciones para Power BI
+python -m src.prepare_dashboard_data
+python -m src.add_predictions
+
+# 6. Correr pruebas unitarias
 pytest tests/
 ```
 
 El proyecto incluye `data/raw/sample_FD001_train.txt` (datos de ejemplo) para que
 corra sin descargar nada.
 
+> **Nota:** `pyspark` sólo hace falta para la ruta escalable (`transform_spark`,
+> `glue_job.py`). El pipeline local funciona sin instalarlo.
+
 ## 7. Cómo usar los datos reales de NASA
 
 1. Descarga **CMAPSS** en:
    https://www.nasa.gov/intelligent-systems-division/
    (busca "Turbofan Engine Degradation Simulation Dataset").
-2. Coloca `FD001_train.txt` (y otros) en `data/raw/`.
+2. Coloca los ficheros de cada escenario en `data/raw/` con su nombre original:
+   `train_FD001.txt` … `train_FD004.txt`, `test_FD001.txt` … `test_FD004.txt` y
+   `RUL_FD001.txt` … `RUL_FD004.txt` (estos últimos son el ground-truth del test).
 3. Vuelve a ejecutar `python -m src.main`.
+
+> Los ficheros de NASA separan las columnas con **un solo espacio** y cada línea
+> termina en espacio. El nombre importa poco (la ingesta valida el **número de
+> columnas**, 26), pero un `RUL_*.txt` (1 columna) se omite automáticamente.
 
 ## 8. Cómo levantar Airflow (opcional)
 
@@ -127,8 +151,7 @@ Abre http://localhost:8080 (usuario/contraseña: `admin`/`admin`) y activa el DA
 
 ## 9. Modelo de Machine Learning
 
-El notebook `notebooks/02_modelo.ipynb` entrena dos modelos RandomForest sobre los datos
-`curated` (los 4 escenarios FD001-4):
+Se entrenan dos modelos RandomForest sobre los datos `curated` (los 4 escenarios FD001-4):
 
 - **Clasificación** de `label` (¿fallo en ≤30 ciclos?).
 - **Regresión** de `rul` (ciclos restantes).
@@ -136,21 +159,33 @@ El notebook `notebooks/02_modelo.ipynb` entrena dos modelos RandomForest sobre l
 Detalle técnico clave: el split es **por motor** (anti-fuga temporal) y el RUL del test set
 se **reconstruye** con `RUL_FD00X.txt` (porque en `test_*` el motor no llega a falla).
 
-Resultados obtenidos (RandomForest, 100 árboles):
+Dos formas de reproducirlo (dan las mismas cifras):
 
-| Métrica | Validación | Test (RUL real) |
-|---|---|---|
-| Accuracy (clasificación) | 0.963 | 0.986 |
-| F1 clase `label=1` | 0.860 | 0.692 |
-| RMSE RUL (regresión) | 50.0 ciclos | 62.36 ciclos |
-
-Los modelos se guardan en `models/` (`modelo_label.joblib`, `modelo_rul.joblib`).
-Para ejecutar el notebook:
+```bash
+python -m src.train_model          # script reproducible (recomendado)
+```
 
 ```bash
 jupyter notebook notebooks/02_modelo.ipynb
 # o ejecutar sin abrir: jupyter nbconvert --to notebook --execute --inplace notebooks/02_modelo.ipynb
 ```
+
+Resultados obtenidos (RandomForest, 100 árboles, `random_state=42`):
+
+| Métrica | Validación | Test (RUL real) |
+|---|---|---|
+| Accuracy (clasificación) | 0.963 | 0.986 |
+| F1 clase `label=1` | 0.860 | 0.692 |
+| RMSE RUL (regresión) | 49.70 ciclos | 62.28 ciclos |
+
+Los modelos se guardan comprimidos en `models/` (`modelo_label.joblib`, `modelo_rul.joblib`) y
+**sí se versionan**, para que quien clone el repo no tenga que entrenar.
+
+> **Sobre el tamaño del modelo.** El regresor usa `min_samples_leaf=5`. Con 100 árboles sin
+> límite de profundidad crecía hasta ~15 M de nodos (593 MB sin comprimir, **206 MB** ya
+> comprimido: GitHub rechaza ficheros de más de 100 MB) y además sobreajustaba. Con
+> `min_samples_leaf=5` baja a ~2.6 M de nodos (**54 MB** comprimido) y el RMSE de test
+> **mejora** (62.28 vs 62.36): el ruido de los sensores se promedia en hojas más grandes.
 
 ## 10. Dashboard en Power BI
 
@@ -214,4 +249,32 @@ El DAG encadena: `ingest >> transform >> validate >> create_tables >> load_wareh
 ### Pruebas
 `tests/test_warehouse.py` valida el DDL, las columnas de la tabla de hechos y la lógica de
 cuadratura (sin necesidad de levantar Postgres). Para la prueba en vivo: `docker-compose up`.
+
+---
+
+## 13. Desafíos técnicos (bugs reales encontrados y arreglados)
+
+Lo que sigue no es teoría: son fallos que aparecieron al **ejecutar** el pipeline y comparar
+la salida con lo que el README afirmaba.
+
+| # | Síntoma | Causa raíz | Arreglo |
+|---|---|---|---|
+| 1 | `pytest` fallaba con `FileNotFoundError: .../data/raw/RUL_FD001.txt` | El test creaba `curated/` con `mkdir` pero no `data/raw/` | `raw.mkdir(parents=True, exist_ok=True)` en `test_add_predictions.py` |
+| 2 | `models/modelo_rul.joblib` pesaba **593 MB** (GitHub rechaza >100 MB) | `joblib.dump()` sin comprimir, 100 árboles sin límite de profundidad (~15 M nodos) | `compress=3` + `min_samples_leaf=5` → 206 MB a **54 MB** (y mejor RMSE) |
+| 3 | El modelo guardado daba RMSE test **62.52** y el código del notebook **62.36** | El `.joblib` versionado venía de una ejecución antigua y no era reproducible | `src/train_model.py` regenera los modelos y **reproduce la tabla de métricas** |
+| 4 | `F.window("id")` en la ruta PySpark | `F.window()` es para ventanas **temporales** (exige columna timestamp + duración), no para particionar | `Window.partitionBy("id")` en `transform_spark` y `glue_job.py` |
+| 5 | `curated/test_*.parquet` traía una `rul` que parecía válida y no lo era | En `test_*` el motor **no** llega a falla, así que `max_cycle - cycle` no es la RUL | Aviso explícito en `transform_pandas`; la RUL real se reconstruye con `RUL_FD00X.txt` |
+| 6 | El template de Glue podía fallar al leer el `.txt` | Los ficheros de NASA terminan en espacio → el split por `" "` genera columnas vacías | `read_cmapss()` toma las 26 primeras columnas por posición y castea a int/double |
+| 7 | El dashboard "no cuadraba" con la guía | La guía decía 28 columnas (hay 32) y las medidas DAX usaban una tabla `all_scenarios` inexistente | Conteo corregido y DAX apuntando a la tabla real `dashboard_data` |
+| 8 | Riesgo de subir el repo con `venv/` (11k ficheros) y los datos intermedios | No existía `.gitignore` | `.gitignore` con `venv/`, `__pycache__/`, `.pytest_cache/`, `data/processed|curated/`, `data/raw/*.txt` (salvo la muestra) |
+| 9 | `python -m src.ingest` terminaba con **exit 1** | Su bloque `__main__` no capturaba el `ValueError` de los `RUL_*.txt`, a diferencia de `src/main.py` | `try/except ValueError` con `[omitido]`, igual que el orquestador |
+
+**Verificado ejecutando:** `python -m src.main` (13 ficheros `.txt`: 9 de lecturas → 265 263 filas,
+y los 4 `RUL_*.txt` omitidos por tener 1 columna), `python -m src.train_model` (métricas de la §9),
+`python -m src.prepare_dashboard_data` (160 359 filas) y `pytest tests/` → **14/14 en verde**.
+
+**No verificado en local:** las rutas PySpark/Glue (`pyspark` no está instalado y Java 25 no
+es compatible con Spark 3.5) y el DAG de Airflow con Postgres (requiere el daemon de Docker
+en marcha). El `docker compose config` sí se validó.
+
 

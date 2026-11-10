@@ -1,7 +1,11 @@
-version: "3.8"
-
 # Orquestación local (sin costo) del pipeline ETL + Data Warehouse.
 # Airflow ejecuta el DAG; Postgres 'warehouse' hace de Redshift stand-in.
+#
+# Nota sobre dependencias: no se ejecuta `pip install -r requirements.txt`.
+# La imagen apache/airflow ya trae pandas, pyarrow y psycopg2-binary (extras
+# `pandas`, `common-io` y `postgres`), que es todo lo que necesita el DAG.
+# El mount de ./requirements.txt es informativo; si añades una dependencia
+# nueva, instálala con `_PIP_ADDITIONAL_REQUIREMENTS` o una imagen propia.
 
 services:
   postgres:

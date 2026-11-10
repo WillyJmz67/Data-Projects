@@ -34,8 +34,7 @@ def assert_quality(df: pd.DataFrame) -> None:
 
 
 if __name__ == "__main__":
-    import transform
-    from config import CURATED_DIR
+    from src.config import CURATED_DIR
 
     for pq in CURATED_DIR.glob("*.parquet"):
         df = pd.read_parquet(pq)

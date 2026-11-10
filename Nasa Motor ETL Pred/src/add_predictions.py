@@ -6,10 +6,9 @@ import numpy as np
 import pandas as pd
 import joblib
 
-from src.config import BASE_DIR, CURATED_DIR, RAW_DIR
+from src.config import BASE_DIR, CURATED_DIR, FEATURES, RAW_DIR, RUL_THRESHOLD
 
 MODELS = BASE_DIR / "models"
-FEATURES = ["op1", "op2", "op3"] + [f"s{i}" for i in range(1, 22)]
 OUT = CURATED_DIR / "dashboard_data.parquet"
 
 
@@ -33,7 +32,7 @@ def build(out: Path = OUT) -> pd.DataFrame:
             sub = t[t["id"] == mid].copy()
             last = sub["cycle"].max()
             sub["rul"] = int(rul_truth[i]) + (last - sub["cycle"])
-            sub["label"] = (sub["rul"] <= 30).astype(int)
+            sub["label"] = (sub["rul"] <= RUL_THRESHOLD).astype(int)
             parts.append(sub)
         tt = pd.concat(parts, ignore_index=True)
         tt["scenario"] = fd

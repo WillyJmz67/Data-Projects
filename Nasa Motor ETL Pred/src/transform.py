@@ -17,9 +17,20 @@ def add_rul_pandas(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def transform_pandas(path_in: str | Path, path_out: str | Path | None = None) -> pd.DataFrame:
-    """Lee Parquet procesado, aplica RUL y guarda en capa curated."""
+    """Lee Parquet procesado, aplica RUL y guarda en capa curated.
+
+    AVISO: `rul`/`label` sólo son correctos para los ficheros de ENTRENAMIENTO.
+    En `test_*` el motor no llega a falla, así que `max_cycle - cycle` es "ciclos
+    hasta el final del registro", NO la RUL real. Ésta se reconstruye con
+    `RUL_FD00X.txt` en `src/train_model.py` y `src/add_predictions.py`.
+    """
     df = pd.read_parquet(path_in)
     df = add_rul_pandas(df)
+    if Path(path_in).name.startswith("test_"):
+        print(
+            f"[transform] AVISO {Path(path_in).name}: la columna rul de test no es la RUL "
+            f"real (el motor no llega a falla). Se reconstruye con RUL_FD00X.txt."
+        )
     if path_out is None:
         path_out = CURATED_DIR / Path(path_in).name
     Path(path_out).parent.mkdir(parents=True, exist_ok=True)
@@ -30,12 +41,14 @@ def transform_pandas(path_in: str | Path, path_out: str | Path | None = None) ->
 
 def transform_spark(path_in: str, path_out: str) -> None:
     """Versión PySpark (escalable) del mismo proceso."""
-    from pyspark.sql import SparkSession
+    from pyspark.sql import SparkSession, Window
     from pyspark.sql import functions as F
 
     spark = SparkSession.builder.appName("etl-predictivo").getOrCreate()
     df = spark.read.parquet(path_in)
-    w = F.window("id")
+    # Ojo: F.window() es para ventanas TEMPORALES (requiere columna timestamp +
+    # duración). Para "máximo por motor" hay que usar Window.partitionBy.
+    w = Window.partitionBy("id")
     max_c = F.max("cycle").over(w)
     df = df.withColumn("rul", (max_c - F.col("cycle")).cast("int"))
     df = df.withColumn("label", (F.col("rul") <= RUL_THRESHOLD).cast("int"))

@@ -15,5 +15,10 @@ COLUMNS = [
     *[f"s{i}" for i in range(1, 22)],
 ]
 
+# Features de entrada del modelo: 3 settings + 21 sensores.
+# Fuente única de verdad: la usan tanto el entrenamiento (src/train_model.py)
+# como la inferencia (src/add_predictions.py) para evitar train/serve skew.
+FEATURES = ["op1", "op2", "op3"] + [f"s{i}" for i in range(1, 22)]
+
 # Ventana (en ciclos) para etiquetar fallo inminente
 RUL_THRESHOLD = 30

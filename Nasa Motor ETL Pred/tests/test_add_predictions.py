@@ -15,6 +15,7 @@ def test_build_agrega_predicciones(tmp_path):
     curated = tmp_path / "data" / "curated"
     curated.mkdir(parents=True)
     raw = tmp_path / "data" / "raw"
+    raw.mkdir(parents=True, exist_ok=True)
     for fd in ["FD001", "FD002", "FD003", "FD004"]:
         df = pd.DataFrame({
             "id": [1, 1], "cycle": [1, 2], "op1": [1.0, 1.0], "op2": [1.0, 1.0],

@@ -1,0 +1,23 @@
+# --- Entorno / Python ---
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ipynb_checkpoints/
+
+# --- Datos ---
+# Los .txt crudos de NASA CMAPSS (43 MB) no se versionan: se descargan (ver README §7).
+# Se mantiene sólo la muestra para que el pipeline corra sin descargar nada.
+data/raw/*.txt
+!data/raw/sample_FD001_train.txt
+data/processed/
+data/curated/
+
+# --- Modelos entrenados ---
+# SÍ se versionan: el regresor usa min_samples_leaf=5 (~54 MB comprimido, por debajo
+# del límite de 100 MB de GitHub) para que quien clone el repo no tenga que entrenar.
+# Se regeneran con `python -m src.train_model`.
+# Ojo: si quitas min_samples_leaf el modelo pasa de 200 MB y GitHub lo rechazará.
+
+# --- Salidas varias ---
+*.log
