@@ -1,0 +1,61 @@
+<resources>
+    <string name="app_name">OpenShelf Reader</string>
+
+    <!-- Navegación inferior -->
+    <string name="nav_library">Biblioteca</string>
+    <string name="nav_repositories">Repositorios</string>
+    <string name="nav_settings">Ajustes</string>
+
+    <!-- Biblioteca -->
+    <string name="library_title">Biblioteca</string>
+    <string name="library_empty">Aún no tienes libros. Añade un repositorio o importa libros locales.</string>
+    <string name="library_import_folder">Importar carpeta</string>
+    <string name="library_import_files">Importar archivo(s)</string>
+    <string name="library_importing">Importando libros...</string>
+    <string name="library_import_success">Se importaron %1$d libro(s)</string>
+    <string name="library_import_error">Error al importar: %1$s</string>
+    <string name="library_delete_book">Eliminar libro</string>
+    <string name="library_delete_confirm">¿Estás seguro de eliminar \"%1$s\"?</string>
+
+    <!-- Repositorios -->
+    <string name="repositories_title">Repositorios</string>
+    <string name="repositories_help">Añade un repositorio público de GitHub que contenga un archivo catalog.json en la raíz.</string>
+    <string name="repositories_field_label">usuario/repositorio o URL completa</string>
+    <string name="repositories_add">Añadir repositorio</string>
+    <string name="repositories_view_books">Ver libros</string>
+    <string name="repositories_delete">Eliminar</string>
+    <string name="repositories_branch">rama: %1$s</string>
+
+    <!-- Catálogo remoto -->
+    <string name="catalog_title">Catálogo remoto</string>
+    <string name="catalog_download">Descargar</string>
+    <string name="catalog_downloading">Descargando...</string>
+    <string name="catalog_downloaded">Descargado</string>
+    <string name="catalog_unknown_author">Autor desconocido</string>
+    <string name="catalog_error">Error: %1$s</string>
+
+    <!-- Ajustes -->
+    <string name="settings_title">Ajustes</string>
+    <string name="settings_privacy">Sin anuncios, sin trackers, sin cuenta de usuario.</string>
+    <string name="settings_version">Versión %1$s</string>
+
+    <!-- Lector -->
+    <string name="reader_back">Volver</string>
+    <string name="reader_toc">Índice</string>
+    <string name="reader_previous">Anterior</string>
+    <string name="reader_next">Siguiente</string>
+    <string name="reader_chapter">Capítulo %1$d</string>
+    <string name="reader_page_of">%1$d/%2$d</string>
+    <string name="reader_unsupported">Formato no soportado todavía</string>
+    <string name="reader_no_chapters">Este EPUB no tiene capítulos legibles.</string>
+    <string name="reader_open_epub_error">No se pudo abrir el EPUB</string>
+    <string name="reader_open_pdf_error">No se pudo abrir el PDF</string>
+    <string name="reader_no_pages">El PDF no tiene páginas</string>
+    <string name="reader_open_cbz_error">No se pudo abrir el CBZ</string>
+    <string name="reader_no_images">El CBZ no tiene imágenes</string>
+    <string name="reader_chapter_unavailable">Capítulo no disponible</string>
+    <string name="reader_manga_rtl">Manga: RTL</string>
+    <string name="reader_manga_ltr">Manga: LTR</string>
+    <string name="reader_double_on">Doble página: ON</string>
+    <string name="reader_double_off">Doble página: OFF</string>
+</resources>

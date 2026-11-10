@@ -1,0 +1,21 @@
+*.iml
+.gradle
+/local.properties
+/.idea
+.DS_Store
+build/
+/captures
+.externalNativeBuild
+.cxx
+local.properties
+
+# Keystores y archivos secretos: NUNCA subirlos al repositorio
+*.keystore
+*.jks
+*.base64
+*.key
+*.p12
+
+# APKs generados localmente
+*.apk
+*.aab
