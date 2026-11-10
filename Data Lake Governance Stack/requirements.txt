@@ -5,13 +5,17 @@ duckdb>=0.9.0
 duckdb-engine>=0.10.0
 
 # Data quality
-gx>=0.18.0
+# OJO: el paquete correcto es `great_expectations`, NO `gx`
+# (en PyPI `gx` es un paquete sin relacion de 2019).
+# La configuracion de great_expectations/ es estilo 0.18 (config_version: 3.0),
+# por eso se acota a la rama <1.0.
+great_expectations>=0.18.0,<1.0
 
 # Data ingestion
 kagglehub>=0.3.0
 
-# Visualization
-apache-superset>=3.0.0
+# HTTP (usado por scripts/superset_init.py)
+requests>=2.31.0
 
 # Database
 psycopg2-binary>=2.9.0
@@ -27,3 +31,8 @@ pytest-cov>=4.1.0
 # Utils
 python-dotenv>=1.0.0
 tqdm>=4.66.0
+
+# NOTA: Apache Superset NO se instala aqui. Se ejecuta en Docker
+# (ver docker-compose.yml) y se consume por su API REST. Instalarlo en el
+# mismo entorno que el pipeline anade ~1 GB de dependencias y conflictos.
+# apache-superset>=3.0.0

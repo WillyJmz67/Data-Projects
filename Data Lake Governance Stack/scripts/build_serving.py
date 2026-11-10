@@ -77,8 +77,7 @@ def build_serving():
         items_agg = items.groupby("order_id").agg(item_count=("order_item_id", "count"),
                                                   total_price=("price", "sum"),
                                                   total_freight=("freight_value", "sum"),
-                                                  unique_sellers=("seller_id", "nunique"),
-                                                  unique_categories=("product_id", lambda x: x.nunique())).reset_index()
+                                                  unique_sellers=("seller_id", "nunique")).reset_index()
         payments_agg = payments.groupby("order_id").agg(payment_count=("payment_sequential", "count"),
                                                         total_payment_value=("payment_value", "sum"),
                                                         payment_types=("payment_type", lambda x: ",".join(x.unique()))).reset_index()
@@ -88,8 +87,10 @@ def build_serving():
         fact = orders.merge(items_agg, on="order_id", how="left") \
                       .merge(payments_agg, on="order_id", how="left") \
                       .merge(reviews_agg, on="order_id", how="left")
-        fact["order_date_key"] = fact["order_purchase_timestamp"].dt.strftime("%Y%m%d").astype(int)
-        fact["delivery_date_key"] = pd.to_numeric(fact["order_delivered_customer_date"].dt.strftime("%Y%m%d"), errors="coerce").astype("Int64")
+        fact["order_date_key"] = pd.to_numeric(
+            fact["order_purchase_timestamp"].dt.strftime("%Y%m%d"), errors="coerce").astype("Int64")
+        fact["delivery_date_key"] = pd.to_numeric(
+            fact["order_delivered_customer_date"].dt.strftime("%Y%m%d"), errors="coerce").astype("Int64")
         fact_cols = ["order_id", "customer_id", "order_status", "order_purchase_timestamp",
                      "order_approved_at", "order_delivered_carrier_date", "order_delivered_customer_date",
                      "order_estimated_delivery_date", "order_date_key", "delivery_date_key",
@@ -104,7 +105,16 @@ def build_serving():
         items = tables["order_items"].merge(tables["products"][["product_id", "product_category_name"]], on="product_id", how="left")
         if "product_category_name_translation" in tables:
             items = items.merge(tables["product_category_name_translation"], on="product_category_name", how="left")
-        items["order_date_key"] = items["shipping_limit_date"].dt.strftime("%Y%m%d").astype(int)
+        # order_date_key debe referenciar la FECHA DE COMPRA del pedido para existir
+        # en dim_date. Derivarlo de shipping_limit_date generaba claves fuera del
+        # calendario (envios de 2020) y rompia la integridad referencial.
+        if "orders" in tables:
+            items = items.merge(tables["orders"][["order_id", "order_purchase_timestamp"]], on="order_id", how="left")
+            items["order_date_key"] = pd.to_numeric(
+                items["order_purchase_timestamp"].dt.strftime("%Y%m%d"), errors="coerce").astype("Int64")
+            items = items.drop(columns=["order_purchase_timestamp"])
+        # quitar columnas de particionado heredadas del raw (year/month)
+        items = items.drop(columns=["year", "month"], errors="ignore")
         items.to_parquet(serving_dir / "fact_order_items.parquet", index=False)
         print(f"  fact_order_items: {len(items):,} rows")
     print(f"\nCreating DuckDB database at {duckdb_path}...")

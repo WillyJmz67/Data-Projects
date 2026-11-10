@@ -1,6 +1,6 @@
 # Data Lake Governance Stack
 
-**Versión:** 1.0 — Governanza de datos local / cloud-free  
+**Versión:** 1.1 — Gobernanza de datos local / cloud-free  
 **Storytelling:** *"Implementando gobernanza de datos desde cero sin costos de licencia"*
 
 ---
@@ -46,7 +46,7 @@ Demostrar habilidades de Data Engineering con pilas tecnológicas modernas sin l
 |------|-------------|-----------|
 | **Ingestión** | `kagglehub` + Python | Descarga dataset Olist de Kaggle |
 | **Procesamiento** | `Pandas` + `PyArrow` | Transformación, limpieza, Particionado |
-| **Calidad** | **Great Expectations** (0.18+/1.x) | Expectation suites, checkpoints, Data Docs |
+| **Calidad** | **Great Expectations** (config estilo 0.18) | 8 expectation suites + 2 checkpoints; validación estructural de su configuración |
 | **Almacenamiento** | Sistema de archivos local + **Parquet** | Columnar, compresión Snappy, particionado year=YYYY/month=MM |
 | **Motor Analítico** | **DuckDB** | Queries SQL sobre archivos Parquet, vistas virtuales |
 | **Visualización** | **Apache Superset** (Docker) | Dashboards interactivos, KPIs empresariales |
@@ -71,6 +71,8 @@ Demostrar habilidades de Data Engineering con pilas tecnológicas modernas sin l
 - Docker Desktop (para Superset)
 - Git
 - Pip (gestor de paquetes Python)
+- *(Opcional)* `make` — solo si quieres usar los atajos `make all`, `make test`, etc.
+  No viene instalado por defecto en Windows; los scripts se pueden ejecutar directamente con `python`.
 
 ### 1. Clonar repositorio
 ```bash
@@ -84,20 +86,40 @@ pip install -r requirements.txt
 ```
 
 ### 3. Ejecutar el pipeline completo
+
+Con `make` instalado (Linux/macOS/Git Bash):
 ```bash
 make all
 # O ejecuta los pasos individuales:
 make init       # Levanta Docker (Superset + PostgreSQL) + instala deps + init GX
 make ingest     # Descarga Olist → data_lake/01_raw/ (Parquet particionado)
 make transform  # raw/ → curated/ (limpieza, tipado, enriquecimiento)
-make validate   # Ejecuta checkpoints GX + genera Data Docs HTML
+make validate   # Valida la configuración GX (suites + checkpoints)
 make serve      # Build star schema + configura Superset + dashboard
 make test       # Ejecutar 30 tests pytest
 ```
 
+Si no tienes `make` (no viene en Windows por defecto), ejecuta los scripts directamente:
+```bash
+python -m pip install -r requirements.txt
+python scripts/ingest.py       # requiere kagglehub y credenciales de Kaggle
+python scripts/transform.py
+python scripts/gx_run_checkpoint.py
+python scripts/build_serving.py
+python scripts/superset_init.py   # requiere Superset levantado (docker compose up -d)
+python -m pytest tests/ -v
+```
+
+> **Nota sobre la calidad de datos:** `scripts/gx_run_checkpoint.py` hace una
+> **validación estructural** de los ficheros de configuración de Great Expectations
+> (que los suites y checkpoints existan y tengan el formato esperado). **No ejecuta
+> los checkpoints contra los datos ni genera Data Docs.** Para una validación real
+> hay que usar el DataContext de GX (`great_expectations` instalado, config estilo
+> 0.18) y lanzar los checkpoints.
+
 ### 4. Acceder a las interfaces
 - **Superset:** http://localhost:8088 (usuario: `admin` / password: `admin`)
-- **Data Docs:** `great_expectations/uncommitted/data_docs/local_site/index.html`
+- **Data Docs:** `great_expectations/uncommitted/data_docs/local_site/index.html` *(solo si se ejecutan los checkpoints de GX con el DataContext; el script `validate` no los genera)*
 - **DuckDB queries:** `python -c "import duckdb; con=duckdb.connect('data_lake/03_serving/serving.duckdb'); ..."`
 
 ---
@@ -108,9 +130,9 @@ make test       # Ejecutar 30 tests pytest
 |---------|-----------|
 | **Tests unitarios** | 30/30 passing (pytest) |
 | **Tablas procesadas** | 9 raw → 9 curated → 7 serving |
-| **Filos procesados** | ~1.5 millones |
-| **Data Docs GX** | Reportes HTML con expectativas pass/fail |
-| **Dashboards Superset** | 7+ KPIs (GMV, entregas, reviews, categorías) |
+| **Filas procesadas** | ~1.5 millones (99.441 pedidos, 112.650 líneas de pedido) |
+| **Validación de calidad** | 8 expectation suites + 2 checkpoints (validación estructural de la config) |
+| **Dashboards Superset** | 4 charts (GMV diario, pedidos/día, top categorías, reviews por estado) |
 | **Calidad de datos** | 8 suites de expectation configuradas |
 
 ---
@@ -126,7 +148,7 @@ data-lake-governance-stack/
 ├── README.md                   # Este archivo
 ├── config/
 │   ├── settings.yaml           # Rutas, particionado, tablas Olist
-│   └── gx_datasources.yaml    # Configuración datasources GX
+│   └── gx_datasources.yaml    # (referencia) datasources GX — no lo consume ningún script
 ├── great_expectations/
 │   ├── great_expectations.yml  # Configuración GX
 │   ├── expectation_suites/     # 8 suites JSON (customers, geolocation, orders, etc.)
@@ -157,6 +179,11 @@ data-lake-governance-stack/
 └── README.md
 ```
 
+> **Nota de mantenimiento:** existe además una carpeta `gx/` que es un DataContext
+> de Great Expectations **duplicado** (generado por `gx init`). El proyecto usa
+> `great_expectations/`. Se recomienda eliminar `gx/` para evitar confusión sobre
+> cuál es la configuración activa.
+
 ---
 
 ## 🧪 Tests Automatizados
@@ -175,17 +202,17 @@ make test
 
 ---
 
-## 📊 Dashboards Superset (ejemplo)
+## 📊 Dashboards Superset
 
-El dashboard `Olist E-commerce - Data Lake Governance` incluye 7+ charts:
+`scripts/superset_init.py` crea el dashboard `Olist E-commerce - Data Lake Governance` con estos 4 charts:
 
-1. **GMV Diario** - Línea temporal con pago acumulado
-2. **Pedidos por Día** - Volumen de órdenes
-3. **Estados de Pedido** - Distribución pie chart
-4. **Tiempo de Entrega** - Histograma de días
-5. **Tasa Entregas Tardías** - KPI principal
-6. **Top 10 Categorías** - Tabla revenue
-7. **Review Score por Estado** - Promedio por estado
+1. **GMV Diario** - Serie temporal de `SUM(total_payment_value)` sobre `fact_orders`
+2. **Pedidos por Día** - Volumen de órdenes (`COUNT(*)`) sobre `fact_orders`
+3. **Top 10 Categorías por Revenue** - Tabla sobre `fact_order_items`
+4. **Review Score por Estado de Pedido** - Tabla sobre `fact_orders`
+
+**Roadmap (aún no implementado):** distribución de estados de pedido (pie),
+histograma de tiempo de entrega y tasa de entregas tardías.
 
 ---
 

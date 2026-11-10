@@ -17,7 +17,6 @@ partitioning:
   date_columns:
     orders: "order_purchase_timestamp"
     order_items: "shipping_limit_date"
-    payments: "payment_installments"
   format: "year=%Y/month=%m"
 
 # Olist dataset tables

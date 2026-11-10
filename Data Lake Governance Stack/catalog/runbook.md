@@ -55,14 +55,19 @@ make transform
 ### 4. Validate Quality
 ```bash
 make validate
+# equivalente: python scripts/gx_run_checkpoint.py
 ```
-- Runs `raw_checkpoint` on 01_raw/
-- Runs `curated_checkpoint` on 02_curated/
-- Generates Data Docs HTML
+- Valida **estructuralmente** la configuración de GX: comprueba que los 8
+  expectation suites y los 2 checkpoints existen y tienen el formato esperado.
 
-**Output**: `great_expectations/uncommitted/data_docs/local_site/index.html`
+**Output**: mensajes `VALID: ...` / `SUCCESS` en consola (exit code 0).
 
-**If fails**: Open Data Docs to see failed expectations, fix data or expectations
+**Nota**: este paso **no** ejecuta los checkpoints contra los datos ni genera
+Data Docs. Para ello hay que usar el DataContext de `great_expectations`
+(config estilo 0.18) y lanzar los checkpoints.
+
+**If fails**: revisa que los ficheros en `great_expectations/expectation_suites/`
+y `great_expectations/checkpoints/` sean JSON/YAML válidos.
 
 ### 5. Build Serving Layer
 ```bash

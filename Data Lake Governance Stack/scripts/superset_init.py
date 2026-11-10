@@ -41,9 +41,13 @@ class SupersetClient:
                    "expose_in_sqllab": True, "allow_ctas": True, "allow_cvas": True, "allow_dml": True}
         resp = self.session.post(f"{self.base_url}/database/", json=payload, headers=headers)
         if resp.status_code == 409:
-            resp = self.session.get(f"{self.base_url}/database/?q={{'filters':[{'col':'database_name','opr':'eq','value':{name}}]}}")
+            # La base de datos ya existe: recuperamos su id.
+            query = {"filters": [{"col": "database_name", "opr": "eq", "value": name}]}
+            resp = self.session.get(f"{self.base_url}/database/", params={"q": json.dumps(query)})
+            resp.raise_for_status()
             databases = resp.json()["result"]
             if databases:
+                print(f"Database '{name}' already exists (ID: {databases[0]['id']})")
                 return databases[0]["id"]
         resp.raise_for_status()
         db_id = resp.json()["id"]
@@ -51,7 +55,8 @@ class SupersetClient:
         return db_id
 
     def get_datasets(self, database_id):
-        resp = self.session.get(f"{self.base_url}/dataset/?q={{'filters':[{'col':'database','opr':'rel_o2m','value':{database_id}}]}}")
+        query = {"filters": [{"col": "database", "opr": "rel_o2m", "value": database_id}]}
+        resp = self.session.get(f"{self.base_url}/dataset/", params={"q": json.dumps(query)})
         resp.raise_for_status()
         return {ds["table_name"]: ds["id"] for ds in resp.json()["result"]}
 
@@ -91,11 +96,52 @@ class SupersetClient:
         resp.raise_for_status()
         dash_id = resp.json()["id"]
         print(f"Created dashboard '{title}' (ID: {dash_id})")
+        # El layout (position_json) ya asocia los charts al dashboard. Este POST es
+        # un extra por si la version de Superset expone el endpoint; si no existe
+        # o devuelve error, no debe romper la inicializacion.
         for chart_id in charts:
             if chart_id:
-                self.session.post(f"{self.base_url}/dashboard/{dash_id}/charts/",
-                                  json={"chart_id": chart_id}, headers=headers)
+                try:
+                    r = self.session.post(f"{self.base_url}/dashboard/{dash_id}/charts/",
+                                          json={"chart_id": chart_id}, headers=headers)
+                    if r.status_code >= 400:
+                        print(f"  (aviso) no se pudo asociar chart {chart_id} via API: HTTP {r.status_code}")
+                except Exception as e:
+                    print(f"  (aviso) error asociando chart {chart_id}: {e}")
         return dash_id
+
+
+def build_position_json(chart_ids, title="", charts_per_row=2):
+    """Construye un layout valido de dashboard Superset: GRID -> ROW -> CHART.
+
+    Superset espera una jerarquia con nodos ROOT/GRID/ROW/CHART; los nodos
+    CHART-<id> son los que asocian cada chart al dashboard.
+    """
+    position = {
+        "DASHBOARD_VERSION_KEY": "v2",
+        "ROOT_ID": {"type": "ROOT", "id": "ROOT_ID", "children": ["GRID_ID"], "parents": []},
+        "GRID_ID": {"type": "GRID", "id": "GRID_ID", "children": [], "parents": ["ROOT_ID"]},
+        "HEADER_ID": {"type": "HEADER", "id": "HEADER_ID", "meta": {"text": title}},
+    }
+    row_ids = []
+    for row_index in range(0, len(chart_ids), charts_per_row):
+        row_id = f"ROW-{row_index // charts_per_row}"
+        chunk = chart_ids[row_index:row_index + charts_per_row]
+        position[row_id] = {
+            "type": "ROW", "id": row_id,
+            "children": [f"CHART-{cid}" for cid in chunk],
+            "parents": ["ROOT_ID", "GRID_ID"],
+            "meta": {"background": "BACKGROUND_TRANSPARENT"},
+        }
+        row_ids.append(row_id)
+        for cid in chunk:
+            position[f"CHART-{cid}"] = {
+                "type": "CHART", "id": f"CHART-{cid}", "children": [],
+                "parents": ["ROOT_ID", "GRID_ID", row_id],
+                "meta": {"chartId": cid, "width": 12 // charts_per_row, "height": 50},
+            }
+    position["GRID_ID"]["children"] = row_ids
+    return position
 
 
 def wait_for_superset(host, port, max_wait=120):
@@ -150,12 +196,11 @@ def main():
         chart_ids.append(client.create_chart(dataset_ids["fact_orders"], "table",
                {"columns": ["order_status", "AVG(avg_review_score)", "COUNT(*)"], "row_limit": 20},
                "Review Score por Estado de Pedido"))
-    position_json = {"ROOT_ID": {"type": "ROOT", "id": "ROOT_ID",
-                    "children": [f"CHART-{c}" for c in chart_ids if c], "parents": []}}
-    for i, cid in enumerate(filter(None, chart_ids)):
-        position_json["ROOT_ID"]["children"] = [f"CHART-{c}" for c in chart_ids if c]
+    valid_chart_ids = [c for c in chart_ids if c]
+    position_json = build_position_json(valid_chart_ids,
+                                        title="Olist E-commerce - Data Lake Governance")
     client.create_dashboard("Olist E-commerce - Data Lake Governance",
-            list(filter(None, chart_ids)),
+            valid_chart_ids,
             position_json)
     print("\nSuperset initialization complete!")
     print(f"Access at: http://{superset_cfg['host']}:{superset_cfg['port']}")

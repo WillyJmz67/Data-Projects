@@ -1,4 +1,3 @@
-version: '3.8'
 services:
   superset-db:
     image: postgres:15
@@ -26,12 +25,14 @@ services:
       - "8088:8088"
     volumes:
       - ./superset_home:/app/superset_home
+    # `|| true` en create-admin: si el usuario ya existe (p. ej. al reiniciar el
+    # contenedor) el comando devuelve un codigo de error y, encadenado con `&&`,
+    # abortaria el arranque de Superset.
     command: >
       bash -c "superset db upgrade &&
-               superset fab create-admin --username admin --password admin --email admin@local --firstname Admin --lastname User &&
+               (superset fab create-admin --username admin --password admin --email admin@local --firstname Admin --lastname User || true) &&
                superset init &&
                superset run -h 0.0.0.0 -p 8088 --with-threads --reload --debugger"
 
 volumes:
   superset-db-volume:
-  superset_home:
