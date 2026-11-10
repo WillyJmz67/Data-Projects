@@ -2,6 +2,7 @@ package com.streaming.flink;
 
 import org.apache.flink.api.common.eventtime.WatermarkStrategy;
 import org.apache.flink.api.common.serialization.SimpleStringSchema;
+import org.apache.flink.connector.base.DeliveryGuarantee;
 import org.apache.flink.connector.kafka.source.KafkaSource;
 import org.apache.flink.connector.kafka.source.enumerator.initializer.OffsetsInitializer;
 import org.apache.flink.connector.kafka.sink.KafkaRecordSerializationSchema;
@@ -13,14 +14,8 @@ import org.apache.flink.streaming.api.windowing.time.Time;
 import org.apache.flink.api.java.utils.ParameterTool;
 import org.apache.flink.streaming.api.functions.windowing.ProcessWindowFunction;
 import org.apache.flink.util.Collector;
-import org.apache.flink.configuration.Configuration;
-import org.apache.flink.configuration.RestOptions;
-import org.apache.flink.streaming.api.functions.sink.RichSinkFunction;
-import org.apache.flink.streaming.api.functions.source.RichSourceFunction;
 
 import java.time.Duration;
-import java.util.Properties;
-import java.util.concurrent.TimeUnit;
 
 /**
  * Flink Job for Web Events Processing
@@ -92,7 +87,7 @@ public class WebEventsFlinkJob {
             .process(new WindowAggregationFunction())
             .name("Window Aggregation")
             .uid("window-aggregation");
-        
+
         // Configure Kafka sink
         KafkaSink<AggregatedMetrics> kafkaSink = KafkaSink.<AggregatedMetrics>builder()
             .setBootstrapServers(kafkaBootstrapServers)
@@ -100,7 +95,9 @@ public class WebEventsFlinkJob {
                 .setTopic(outputTopic)
                 .setValueSerializationSchema(new MetricsSerializationSchema())
                 .build())
-            .setDeliveryGuarantee(org.apache.flink.connector.kafka.sink.DeliveryGuarantee.EXACTLY_ONCE)
+            // DeliveryGuarantee lives in org.apache.flink.connector.base, not in
+            // ...connector.kafka.sink.
+            .setDeliveryGuarantee(DeliveryGuarantee.EXACTLY_ONCE)
             .setTransactionalIdPrefix("flink-web-events")
             .build();
         
@@ -208,36 +205,52 @@ public class WebEventsFlinkJob {
     }
     
     /**
-     * JSON Parser Function
+     * JSON Parser Function.
+     *
+     * MapFunction is an interface, so this class must use "implements". Using
+     * "extends" here does not compile ("no interface expected here").
      */
-    public static class JsonParserFunction extends org.apache.flink.api.common.functions.MapFunction<String, WebEvent> {
-        private final com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
-        
+    public static class JsonParserFunction
+            implements org.apache.flink.api.common.functions.MapFunction<String, WebEvent> {
+
+        private final com.fasterxml.jackson.databind.ObjectMapper mapper =
+                new com.fasterxml.jackson.databind.ObjectMapper();
+
+        /** Reads a field as text, tolerating missing or null fields. */
+        private static String text(com.fasterxml.jackson.databind.JsonNode node, String field) {
+            com.fasterxml.jackson.databind.JsonNode value = node.get(field);
+            return (value == null || value.isNull()) ? "" : value.asText();
+        }
+
         @Override
         public WebEvent map(String json) throws Exception {
             com.fasterxml.jackson.databind.JsonNode node = mapper.readTree(json);
+            if (node == null || node.isNull()) {
+                throw new IllegalArgumentException("Empty event payload");
+            }
+
             WebEvent event = new WebEvent();
-            event.setEventId(node.get("event_id").asText());
-            event.setTimestamp(node.get("timestamp").asText());
-            event.setUserId(node.get("user_id").asText());
-            event.setSessionId(node.get("session_id").asText());
-            event.setPage(node.get("page").asText());
-            event.setEventType(node.get("event_type").asText());
-            event.setDeviceType(node.has("device_type") ? node.get("device_type").asText() : "");
-            event.setBrowser(node.has("browser") ? node.get("browser").asText() : "");
-            event.setOs(node.has("os") ? node.get("os").asText() : "");
-            event.setCountry(node.has("country") ? node.get("country").asText() : "");
-            event.setReferrer(node.has("referrer") ? node.get("referrer").asText() : "");
-            event.setUserAgent(node.has("user_agent") ? node.get("user_agent").asText() : "");
-            
-            // Parse timestamp to epoch millis
+            event.setEventId(text(node, "event_id"));
+            String timestamp = text(node, "timestamp");
+            event.setTimestamp(timestamp);
+            event.setUserId(text(node, "user_id"));
+            event.setSessionId(text(node, "session_id"));
+            event.setPage(text(node, "page"));
+            event.setEventType(text(node, "event_type"));
+            event.setDeviceType(text(node, "device_type"));
+            event.setBrowser(text(node, "browser"));
+            event.setOs(text(node, "os"));
+            event.setCountry(text(node, "country"));
+            event.setReferrer(text(node, "referrer"));
+            event.setUserAgent(text(node, "user_agent"));
+
+            // Parse timestamp to epoch millis, falling back to processing time
             try {
-                java.time.Instant instant = java.time.Instant.parse(node.get("timestamp").asText());
-                event.setEventTimestamp(instant.toEpochMilli());
+                event.setEventTimestamp(java.time.Instant.parse(timestamp).toEpochMilli());
             } catch (Exception e) {
                 event.setEventTimestamp(System.currentTimeMillis());
             }
-            
+
             return event;
         }
     }

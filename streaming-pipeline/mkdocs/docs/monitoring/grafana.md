@@ -98,7 +98,7 @@ Dashboards placed in `/etc/grafana/provisioning/dashboards` are auto-loaded.
 | Events per Page | Time Series | PostgreSQL: `SELECT window_start, SUM(event_count), page FROM realtime_metrics WHERE window_start >= NOW() - INTERVAL '10 minutes' GROUP BY window_start, page` | Page traffic |
 | Events by Type | Time Series | PostgreSQL: `SELECT window_start, SUM(event_count), event_type FROM realtime_metrics WHERE window_start >= NOW() - INTERVAL '10 minutes' GROUP BY window_start, event_type` | Event type breakdown |
 | Total Events (1h) | Stat | PostgreSQL: `SELECT SUM(event_count) FROM realtime_metrics WHERE window_start >= NOW() - INTERVAL '1 hour'` | Hourly total |
-| Unique Users (1h) | Stat | PostgreSQL: `SELECT SUM(unique_users) FROM realtime_metrics WHERE window_start >= NOW() - INTERVAL '1 hour'` | Hourly users |
+| Unique Users (1h) | Stat | PostgreSQL: `SELECT MAX(unique_users) FROM realtime_metrics WHERE window_start >= NOW() - INTERVAL '1 hour'` | Hourly users |
 | Revenue (1h) | Stat | PostgreSQL: `SELECT SUM(revenue) FROM realtime_metrics WHERE window_start >= NOW() - INTERVAL '1 hour'` | Hourly revenue |
 | Errors (1h) | Stat | PostgreSQL: `SELECT SUM(error_count) FROM realtime_metrics WHERE window_start >= NOW() - INTERVAL '1 hour'` | Hourly errors |
 
@@ -183,7 +183,7 @@ FROM realtime_metrics
 WHERE window_start >= NOW() - INTERVAL '1 hour'
 
 -- Unique users last hour
-SELECT SUM(unique_users) as total_users
+SELECT MAX(unique_users) as peak_users
 FROM realtime_metrics
 WHERE window_start >= NOW() - INTERVAL '1 hour'
 ```
@@ -195,7 +195,7 @@ WHERE window_start >= NOW() - INTERVAL '1 hour'
 SELECT 
     page,
     SUM(event_count) as events,
-    SUM(unique_users) as users,
+    MAX(unique_users) as peak_users,
     SUM(revenue) as revenue
 FROM realtime_metrics
 WHERE window_start >= NOW() - INTERVAL '1 hour'

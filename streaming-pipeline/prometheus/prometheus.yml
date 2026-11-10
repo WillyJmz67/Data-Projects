@@ -18,61 +18,61 @@ scrape_configs:
     static_configs:
       - targets: ['localhost:9090']
 
-  # Node Exporter (host metrics)
+  # Node Exporter (host metrics: CPU, memory, disk, network)
+  # On Docker Desktop the numbers describe the Linux VM, not native Windows.
   - job_name: 'node-exporter'
     static_configs:
       - targets: ['node-exporter:9100']
 
-  # Kafka Exporter (consumer lag, topic metrics)
+  # Kafka Exporter (consumer lag, per-partition offsets)
+  # Source of kafka_consumergroup_lag and kafka_topic_partition_current_offset.
   - job_name: 'kafka-exporter'
     static_configs:
       - targets: ['kafka-exporter:9308']
 
-  # Kafka JMX (broker metrics)
-  - job_name: 'kafka-jmx'
-    static_configs:
-      - targets: ['kafka:9101']
-
-  # Spark Master
+  # Spark Master UI exposes /metrics/prometheus/ when spark.ui.prometheus.enabled
+  # is true (the default in Spark 3.5).
   - job_name: 'spark-master'
     static_configs:
       - targets: ['spark-master:8080']
     metrics_path: '/metrics/prometheus/'
 
-  # Spark Workers
+  # Spark Workers serve their UI on 8081, NOT 8080 (8080 is the master).
   - job_name: 'spark-workers'
     static_configs:
-      - targets: ['spark-worker-1:8080', 'spark-worker-2:8080']
+      - targets: ['spark-worker-1:8081', 'spark-worker-2:8081']
     metrics_path: '/metrics/prometheus/'
 
-  # Flink JobManager
+  # Flink exposes Prometheus metrics on the PrometheusReporter port (9249),
+  # configured via metrics.reporters in docker-compose.yml. The REST port 8081
+  # only serves JSON, so it is not scrapable here.
   - job_name: 'flink-jobmanager'
     static_configs:
-      - targets: ['flink-jobmanager:8081']
-    metrics_path: '/metrics'
+      - targets: ['flink-jobmanager:9249']
 
-  # Flink TaskManagers
+  # Both taskmanager replicas share one service name, so DNS resolves to a
+  # single container. Use the Flink dashboard (or a per-taskmanager label) if
+  # you need metrics from every replica.
   - job_name: 'flink-taskmanagers'
     static_configs:
-      - targets: ['flink-taskmanager:8081']
-    metrics_path: '/metrics'
+      - targets: ['flink-taskmanager:9249']
 
-  # MinIO
+  # MinIO cluster metrics (requires MINIO_PROMETHEUS_AUTH_TYPE=public)
   - job_name: 'minio'
     static_configs:
       - targets: ['minio:9000']
     metrics_path: '/minio/v2/metrics/cluster'
 
-  # PostgreSQL (using postgres_exporter - would need to be added)
-  - job_name: 'postgres'
-    static_configs:
-      - targets: ['postgres:5432']
-
-  # Grafana
+  # Grafana serves /metrics behind basic auth. PostgreSQL is intentionally NOT
+  # scraped here: port 5432 is the wire protocol, not an HTTP metrics endpoint.
+  # To monitor PostgreSQL add a postgres_exporter and point this job at it.
   - job_name: 'grafana'
+    metrics_path: '/metrics'
+    basic_auth:
+      username: admin
+      password: admin123
     static_configs:
       - targets: ['grafana:3000']
-    metrics_path: '/metrics'
 
 # Remote write for long-term storage (optional)
 # remote_write:

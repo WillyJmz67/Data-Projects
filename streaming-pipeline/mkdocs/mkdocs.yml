@@ -59,10 +59,14 @@ nav:
 plugins:
   - search
   - mermaid2
-  - mkdocstrings:
-      handlers:
-        python:
-          paths: [../producer, ../spark_streaming]
+  # mkdocstrings is intentionally NOT enabled: no page uses a ":::" directive,
+  # and its mkdocs-autorefs dependency is incompatible with the pinned mkdocs
+  # version, which makes the whole build fail. Add it back (together with a
+  # matching mkdocs release) if you start documenting Python APIs inline.
+  # - mkdocstrings:
+  #     handlers:
+  #       python:
+  #         paths: [../producer, ../spark_streaming]
 
 markdown_extensions:
   - admonition

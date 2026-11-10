@@ -99,14 +99,14 @@ Ensure these ports are available on the host:
 | 9090 | Prometheus | Metrics UI |
 | 9092 | Kafka | Client access |
 | 9100 | Node Exporter | Host metrics |
-| 9101 | Kafka JMX | Kafka metrics |
+| 9249 | Flink metrics | Prometheus reporter |
 | 9308 | Kafka Exporter | Consumer lag metrics |
 | 2181 | Zookeeper | Coordination |
 
 Check port availability:
 ```bash
 # Linux/macOS
-for port in 3000 5432 7077 8080 8081 9000 9001 9090 9092 9100 9101 9308 2181; do
+for port in 3000 5432 7077 8080 8081 9000 9001 9090 9092 9100 9249 9308 2181; do
   if lsof -i :$port > /dev/null; then
     echo "Port $port is in use"
   else
@@ -115,7 +115,7 @@ for port in 3000 5432 7077 8080 8081 9000 9001 9090 9092 9100 9101 9308 2181; do
 done
 
 # Windows (PowerShell)
-3000,5432,7077,8080,8081,9000,9001,9090,9092,9100,9101,9308,2181 | ForEach-Object {
+3000,5432,7077,8080,8081,9000,9001,9090,9092,9100,9249,9308,2181 | ForEach-Object {
   if (Get-NetTCPConnection -LocalPort $_ -ErrorAction SilentlyContinue) {
     Write-Host "Port $_ is in use"
   } else {

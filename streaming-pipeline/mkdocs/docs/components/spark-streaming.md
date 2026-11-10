@@ -150,7 +150,7 @@ parsed = kafka_df.select(
 # Convert timestamp string to timestamp type
 events = parsed.withColumn(
     "event_timestamp",
-    from_unixtime(unix_timestamp(col("timestamp"), "yyyy-MM-dd'T'HH:mm:ss'Z'")).cast(TimestampType())
+    to_timestamp(col("timestamp"))   # NOT unix_timestamp with a fixed pattern
 )
 ```
 
@@ -364,7 +364,7 @@ docker exec -it spark-master spark-submit \
 org.apache.hadoop:hadoop-aws:3.3.4,\
 com.amazonaws:aws-java-sdk-bundle:1.12.262,\
 org.postgresql:postgresql:42.7.3 \
-  /opt/spark-apps/structured_streaming.py
+  /opt/spark/applications/structured_streaming.py
 ```
 
 ### Client Mode (Debugging)
@@ -374,7 +374,7 @@ docker exec -it spark-master spark-submit \
   --master spark://spark-master:7077 \
   --deploy-mode client \
   --packages ... \
-  /opt/spark-apps/structured_streaming.py
+  /opt/spark/applications/structured_streaming.py
 ```
 
 ### Local Mode (Development)

@@ -13,7 +13,7 @@ from pyspark.sql import SparkSession
 from pyspark.sql.functions import (
     from_json, to_json, col, window, count, countDistinct,
     sum as spark_sum, avg, min as spark_min, max as spark_max,
-    current_timestamp, expr, from_unixtime, unix_timestamp,
+    current_timestamp, expr, to_timestamp,
     date_format, year, month, dayofmonth, hour, minute, when
 )
 from pyspark.sql.types import (
@@ -27,6 +27,11 @@ from psycopg2.extras import execute_values
 # Configuration
 KAFKA_BOOTSTRAP_SERVERS = os.getenv("KAFKA_BOOTSTRAP_SERVERS", "kafka:29092")
 KAFKA_TOPIC = os.getenv("KAFKA_TOPIC", "web-events")
+# A stable consumer group id is required for two things:
+#   1. kafka-consumer-groups --describe --group spark-streaming-consumer
+#   2. the kafka_consumergroup_lag metric behind the Consumer Lag dashboard
+# Without it Spark generates a random group per run, so lag can never be read.
+KAFKA_CONSUMER_GROUP = os.getenv("KAFKA_CONSUMER_GROUP", "spark-streaming-consumer")
 MINIO_ENDPOINT = os.getenv("MINIO_ENDPOINT", "http://minio:9000")
 MINIO_ACCESS_KEY = os.getenv("MINIO_ACCESS_KEY", "minioadmin")
 MINIO_SECRET_KEY = os.getenv("MINIO_SECRET_KEY", "minioadmin123")
@@ -87,6 +92,7 @@ def create_spark_session():
         .config("spark.streaming.stopGracefullyOnShutdown", "true") \
         .config("spark.sql.adaptive.enabled", "true") \
         .config("spark.sql.adaptive.coalescePartitions.enabled", "true") \
+        .config("spark.sql.session.timeZone", "UTC") \
         .config("spark.hadoop.fs.s3a.endpoint", MINIO_ENDPOINT) \
         .config("spark.hadoop.fs.s3a.access.key", MINIO_ACCESS_KEY) \
         .config("spark.hadoop.fs.s3a.secret.key", MINIO_SECRET_KEY) \
@@ -111,6 +117,7 @@ def read_kafka_stream(spark):
         .format("kafka") \
         .option("kafka.bootstrap.servers", KAFKA_BOOTSTRAP_SERVERS) \
         .option("subscribe", KAFKA_TOPIC) \
+        .option("kafka.group.id", KAFKA_CONSUMER_GROUP) \
         .option("startingOffsets", "latest") \
         .option("failOnDataLoss", "false") \
         .load()
@@ -125,14 +132,27 @@ def parse_events(kafka_df):
         col("partition"),
         col("offset")
     ).select("data.*", "kafka_timestamp", "partition", "offset")
-    
-    # Convert timestamp string to timestamp type
+
+    # Convert the ISO-8601 timestamp string produced by the producer
+    # (e.g. "2026-09-30T16:53:48.199822Z") to a timestamp.
+    #
+    # Do NOT use unix_timestamp(col, "yyyy-MM-dd'T'HH:mm:ss'Z'") here: that
+    # pattern has no fractional-seconds field, so java.time rejects the input
+    # ("could not be parsed at index 19"), Spark returns NULL, the watermark on
+    # event_timestamp never advances and the query emits zero windows forever.
+    # to_timestamp() (CAST semantics) accepts both with and without fractional
+    # seconds. The session timezone is pinned to UTC in create_spark_session()
+    # so the trailing 'Z' is interpreted correctly.
     parsed = parsed.withColumn(
         "event_timestamp",
-        from_unixtime(unix_timestamp(col("timestamp"), "yyyy-MM-dd'T'HH:mm:ss'Z'")).cast(TimestampType())
+        to_timestamp(col("timestamp"))
     )
-    
-    return parsed
+
+    # Defensive: an event whose timestamp cannot be parsed yields a NULL
+    # event_timestamp. Keeping it would not break the watermark (Spark ignores
+    # NULLs) but it would be silently counted in the aggregations, so drop it
+    # and make the loss visible instead.
+    return parsed.filter(col("event_timestamp").isNotNull())
 
 
 def apply_watermark_and_window(events_df):
@@ -253,11 +273,17 @@ def write_to_postgres(batch_df, batch_id):
         conn.commit()
         cursor.close()
         conn.close()
-        
+
         print(f"Batch {batch_id}: Written {len(data)} records to PostgreSQL")
     except Exception as e:
-        print(f"Error writing to PostgreSQL: {e}")
-        # Don't raise - let streaming continue
+        # We deliberately do not raise: a PostgreSQL outage must not kill the
+        # streaming query. But the message is logged loudly because a schema
+        # mismatch here fails on EVERY batch and leaves the dashboards empty
+        # while the job still looks healthy.
+        print(f"[ERROR] Batch {batch_id}: PostgreSQL write failed "
+              f"({type(e).__name__}: {e}). "
+              f"Check that sql/init.sql defines every column in the INSERT above.",
+              file=sys.stderr)
 
 
 def write_to_console(batch_df, batch_id):
@@ -274,6 +300,7 @@ def main():
     print("Starting Spark Structured Streaming Job...")
     print(f"Kafka: {KAFKA_BOOTSTRAP_SERVERS}")
     print(f"Topic: {KAFKA_TOPIC}")
+    print(f"Consumer group: {KAFKA_CONSUMER_GROUP}")
     print(f"MinIO: {MINIO_ENDPOINT}")
     print(f"PostgreSQL: {POSTGRES_HOST}:{POSTGRES_PORT}")
     print(f"Window: {WINDOW_DURATION}, Slide: {SLIDE_DURATION}")

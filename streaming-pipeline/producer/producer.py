@@ -9,7 +9,7 @@ import time
 import random
 import signal
 import sys
-from datetime import datetime
+from datetime import datetime, timezone
 from confluent_kafka import Producer
 from confluent_kafka.admin import AdminClient, NewTopic
 
@@ -156,7 +156,11 @@ class WebEventProducer:
     
     def generate_event(self):
         """Generate a realistic web event"""
-        now = datetime.utcnow()
+        # datetime.utcnow() is deprecated from Python 3.12. Using an aware
+        # datetime keeps the emitted format identical
+        # ("2026-09-30T16:53:48.199822Z"), which both the Spark job
+        # (to_timestamp) and the Flink job (Instant.parse) can parse.
+        now = datetime.now(timezone.utc)
         user_id = f"user_{random.randint(1, 10000)}"
         session_id = f"session_{random.randint(1, 50000)}"
         page = random.choice(PAGES)
@@ -172,7 +176,7 @@ class WebEventProducer:
         
         event = {
             "event_id": f"evt_{int(now.timestamp() * 1000)}_{random.randint(1000, 9999)}",
-            "timestamp": now.isoformat() + "Z",
+            "timestamp": now.strftime("%Y-%m-%dT%H:%M:%S.%f") + "Z",
             "user_id": user_id,
             "session_id": session_id,
             "page": page,

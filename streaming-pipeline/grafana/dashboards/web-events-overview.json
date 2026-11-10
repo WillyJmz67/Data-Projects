@@ -5,7 +5,7 @@
         "builtIn": 1,
         "datasource": {
           "type": "prometheus",
-          "uid": "PBFA97CFB590B2093"
+          "uid": "prometheus"
         },
         "enable": true,
         "hide": true,
@@ -25,7 +25,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "PBFA97CFB590B2093"
+        "uid": "prometheus"
       },
       "fieldConfig": {
         "defaults": {
@@ -103,7 +103,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "PBFA97CFB590B2093"
+        "uid": "prometheus"
       },
       "fieldConfig": {
         "defaults": {
@@ -185,7 +185,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "PBFA97CFB590B2093"
+        "uid": "prometheus"
       },
       "fieldConfig": {
         "defaults": {
@@ -238,7 +238,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "PBFA97CFB590B2093"
+        "uid": "prometheus"
       },
       "fieldConfig": {
         "defaults": {
@@ -291,7 +291,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "PBFA97CFB590B2093"
+        "uid": "prometheus"
       },
       "fieldConfig": {
         "defaults": {
@@ -668,13 +668,13 @@
           "group": [],
           "metricColumn": "none",
           "rawQuery": true,
-          "rawSql": "SELECT SUM(unique_users) as total_users FROM realtime_metrics WHERE window_start >= NOW() - INTERVAL '1 hour'",
+          "rawSql": "SELECT MAX(unique_users) as peak_users FROM realtime_metrics WHERE window_start >= NOW() - INTERVAL '1 hour'",
           "refId": "A",
           "select": [
             [
               {
                 "params": [
-                  "total_users"
+                  "peak_users"
                 ],
                 "type": "column"
               }
@@ -690,8 +690,9 @@
           ]
         }
       ],
-      "title": "Unique Users (1h)",
-      "type": "stat"
+      "title": "Unique Users (1h, peak window)",
+      "type": "stat",
+      "description": "unique_users is a DISTINCT count per 1-minute window, so summing it across overlapping sliding windows double-counts the same visitor. MAX gives the busiest single window, i.e. a lower bound on the true hourly uniques. An exact hourly distinct count would need HLL/approx_count_distinct upstream."
     },
     {
       "datasource": {
@@ -839,7 +840,13 @@
   "refresh": "10s",
   "schemaVersion": 38,
   "style": "dark",
-  "tags": ["streaming", "kafka", "spark", "flink", "web-events"],
+  "tags": [
+    "streaming",
+    "kafka",
+    "spark",
+    "flink",
+    "web-events"
+  ],
   "templating": {
     "list": []
   },

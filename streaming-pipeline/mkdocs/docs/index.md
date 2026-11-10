@@ -43,7 +43,7 @@ cd producer && pip install -r requirements.txt && python producer.py --create-to
 docker exec -it spark-master spark-submit \
   --master spark://spark-master:7077 \
   --packages org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.0,... \
-  /opt/spark-apps/structured_streaming.py
+  /opt/spark/applications/structured_streaming.py
 
 # 4. View dashboards
 open http://localhost:3000  # Grafana (admin/admin123)
@@ -98,7 +98,8 @@ Technical metrics: batch latency, throughput, checkpoint stats, resource usage
 
 ## 📝 License
 
-MIT License - see [LICENSE](../LICENSE) for details.
+MIT License. The full text lives in the `LICENSE` file at the root of the
+repository.
 
 ---
 

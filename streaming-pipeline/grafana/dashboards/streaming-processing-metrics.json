@@ -5,7 +5,7 @@
         "builtIn": 1,
         "datasource": {
           "type": "prometheus",
-          "uid": "PBFA97CFB590B2093"
+          "uid": "prometheus"
         },
         "enable": true,
         "hide": true,
@@ -25,7 +25,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "PBFA97CFB590B2093"
+        "uid": "prometheus"
       },
       "fieldConfig": {
         "defaults": {
@@ -99,12 +99,13 @@
         }
       ],
       "title": "Spark Streaming Batch Latency",
-      "type": "timeseries"
+      "type": "timeseries",
+      "description": "Spark exposes its own metric names through the Prometheus servlet at http://localhost:8080/metrics/prometheus/ . Confirm the exact names there (they include the application and query name) and adjust this query - it could not be verified without a running cluster."
     },
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "PBFA97CFB590B2093"
+        "uid": "prometheus"
       },
       "fieldConfig": {
         "defaults": {
@@ -178,12 +179,13 @@
         }
       ],
       "title": "Spark Streaming Batch Records",
-      "type": "timeseries"
+      "type": "timeseries",
+      "description": "Spark exposes its own metric names through the Prometheus servlet at http://localhost:8080/metrics/prometheus/ . Confirm the exact names there (they include the application and query name) and adjust this query - it could not be verified without a running cluster."
     },
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "PBFA97CFB590B2093"
+        "uid": "prometheus"
       },
       "fieldConfig": {
         "defaults": {
@@ -246,12 +248,12 @@
       },
       "targets": [
         {
-          "expr": "flink_jobmanager_job_last_checkpoint_duration",
+          "expr": "flink_jobmanager_job_lastCheckpointDuration",
           "legendFormat": "Last Checkpoint Duration",
           "refId": "A"
         },
         {
-          "expr": "flink_jobmanager_job_last_checkpoint_size",
+          "expr": "flink_jobmanager_job_lastCheckpointSize",
           "legendFormat": "Last Checkpoint Size",
           "refId": "B"
         }
@@ -262,7 +264,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "PBFA97CFB590B2093"
+        "uid": "prometheus"
       },
       "fieldConfig": {
         "defaults": {
@@ -336,7 +338,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "PBFA97CFB590B2093"
+        "uid": "prometheus"
       },
       "fieldConfig": {
         "defaults": {
@@ -415,7 +417,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "PBFA97CFB590B2093"
+        "uid": "prometheus"
       },
       "fieldConfig": {
         "defaults": {
@@ -490,7 +492,13 @@
   "refresh": "10s",
   "schemaVersion": 38,
   "style": "dark",
-  "tags": ["streaming", "spark", "flink", "minio", "metrics"],
+  "tags": [
+    "streaming",
+    "spark",
+    "flink",
+    "minio",
+    "metrics"
+  ],
   "templating": {
     "list": []
   },

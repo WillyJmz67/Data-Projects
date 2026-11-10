@@ -17,8 +17,6 @@ kafka:
     KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092
     KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
     KAFKA_AUTO_CREATE_TOPICS_ENABLE: 'true'
-    KAFKA_JMX_PORT: 9101
-    KAFKA_JMX_HOSTNAME: kafka
 ```
 
 ### Topics
@@ -61,7 +59,8 @@ kafka_options = {
 
 ### Monitoring
 
-Key metrics exposed via JMX (port 9101) and Kafka Exporter (port 9308):
+Key metrics exposed by Kafka Exporter (port 9308). JMX (9101) is not a
+Prometheus endpoint, so it is not scraped:
 
 | Metric | Description | Alert Threshold |
 |--------|-------------|-----------------|
@@ -285,7 +284,7 @@ docker exec -it spark-master spark-submit \
 org.apache.hadoop:hadoop-aws:3.3.4,\
 com.amazonaws:aws-java-sdk-bundle:1.12.262,\
 org.postgresql:postgresql:42.7.3 \
-  /opt/spark-apps/structured_streaming.py
+  /opt/spark/applications/structured_streaming.py
 
 # Check job status
 curl http://localhost:8080/api/v1/applications
@@ -552,7 +551,7 @@ ORDER BY window_start DESC, event_count DESC;
 
 CREATE VIEW page_metrics AS
 SELECT page, SUM(event_count) as total_events,
-       SUM(unique_users) as total_unique_users,
+       MAX(unique_users) as peak_unique_users,
        MAX(window_end) as last_update
 FROM realtime_metrics
 WHERE window_start >= NOW() - INTERVAL '1 hour'
@@ -643,8 +642,7 @@ scrape_configs:
 
   - job_name: 'flink-jobmanager'
     static_configs:
-      - targets: ['flink-jobmanager:8081']
-    metrics_path: '/metrics'
+      - targets: ['flink-jobmanager:9249']
 ```
 
 ### Grafana Datasources

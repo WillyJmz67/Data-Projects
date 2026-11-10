@@ -40,11 +40,6 @@ scrape_configs:
     static_configs:
       - targets: ['kafka-exporter:9308']
 
-  # Kafka JMX (broker metrics)
-  - job_name: 'kafka-jmx'
-    static_configs:
-      - targets: ['kafka:9101']
-
   # Spark Master
   - job_name: 'spark-master'
     static_configs:
@@ -54,20 +49,18 @@ scrape_configs:
   # Spark Workers
   - job_name: 'spark-workers'
     static_configs:
-      - targets: ['spark-worker-1:8080', 'spark-worker-2:8080']
+      - targets: ['spark-worker-1:8081', 'spark-worker-2:8081']
     metrics_path: '/metrics/prometheus/'
 
   # Flink JobManager
   - job_name: 'flink-jobmanager'
     static_configs:
-      - targets: ['flink-jobmanager:8081']
-    metrics_path: '/metrics'
+      - targets: ['flink-jobmanager:9249']
 
   # Flink TaskManagers
   - job_name: 'flink-taskmanagers'
     static_configs:
-      - targets: ['flink-taskmanager:8081']
-    metrics_path: '/metrics'
+      - targets: ['flink-taskmanager:9249']
 
   # MinIO
   - job_name: 'minio'
@@ -139,12 +132,12 @@ scrape_configs:
 
 ### 3. Kafka JMX
 
-**Port**: 9101  
-**Metrics**: Broker-level metrics
+**Port**: 9101 (not scraped)
 
-| Metric | Description |
-|--------|-------------|
-| `kafka_server_brokertopicmetrics_messages_in_per_sec` | Incoming msg rate |
+The broker exposes JMX, but Prometheus cannot read JMX/RMI. Broker-level
+metrics such as `kafka_server_brokertopicmetrics_messages_in_per_sec` require a
+`jmx_exporter` java agent inside the broker; until then, use Kafka Exporter
+(port 9308) for consumer lag and partition offsets.
 | `kafka_server_brokertopicmetrics_bytes_in_per_sec` | Incoming byte rate |
 | `kafka_server_brokertopicmetrics_bytes_out_per_sec` | Outgoing byte rate |
 | `kafka_server_replicamanager_under_replicated_partitions` | Under-replicated |

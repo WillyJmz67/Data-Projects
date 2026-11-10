@@ -156,7 +156,7 @@ spark.sql("""
 
 # Top pages by traffic
 spark.sql("""
-  SELECT page, SUM(event_count) as total_events, SUM(unique_users) as total_users
+  SELECT page, SUM(event_count) as total_events, MAX(unique_users) as peak_users
   FROM metrics
   WHERE year=2024 AND month=1
   GROUP BY page

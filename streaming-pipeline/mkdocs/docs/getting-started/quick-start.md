@@ -121,7 +121,7 @@ docker exec -it spark-master spark-submit \
 org.apache.hadoop:hadoop-aws:3.3.4,\
 com.amazonaws:aws-java-sdk-bundle:1.12.262,\
 org.postgresql:postgresql:42.7.3 \
-  /opt/spark-apps/structured_streaming.py
+  /opt/spark/applications/structured_streaming.py
 ```
 
 ### Verify Job Running
