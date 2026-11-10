@@ -95,11 +95,11 @@ GROUP BY value_segment
 ORDER BY valor_medio DESC;
 
 -- 9. Particiones fisicas registradas en el metastore -------------------------------------
-SELECT table_name, count(*) AS particiones
-FROM hive.information_schema.partitions
-WHERE table_schema = 'raw'
-GROUP BY table_name
-ORDER BY table_name;
+--    OJO: Trino NO tiene hive.information_schema.partitions. La tabla de sistema
+--    "$partitions" es la que expone las particiones registradas de cada tabla.
+SELECT 'orders' AS tabla, count(*) AS particiones FROM hive.raw."orders$partitions"
+UNION ALL
+SELECT 'order_items',    count(*)                 FROM hive.raw."order_items$partitions";
 
 -- 10. Tamaño real de los ficheros Parquet escritos por dbt --------------------------------
 SELECT

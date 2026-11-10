@@ -38,7 +38,7 @@ data/raw/orders.csv:
 	@$(MAKE) gen-data
 
 seed: data/raw/orders.csv ## Carga los CSV en PostgreSQL (crea el esquema de ventas)
-	$(DC) run --rm seed-postgres
+	$(DC) --profile tools run --rm seed-postgres
 
 # --------------------------------------------------------------------- pipeline
 trigger: ## Lanza el DAG manualmente
@@ -58,7 +58,7 @@ dbt-docs: ## Genera la documentacion estatica (visible en http://localhost:8080)
 
 # ----------------------------------------------------------------------- trino
 trino-cli: ## Abre la CLI de Trino
-	$(DC) exec -T trino trino --server localhost:8080
+	$(DC) exec trino trino --server localhost:8080
 
 trino-query: ## Ejecuta una consulta de ejemplo sobre el lakehouse
 	$(DC) exec -T trino trino --server localhost:8080 --execute \

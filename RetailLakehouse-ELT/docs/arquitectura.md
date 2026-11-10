@@ -59,9 +59,15 @@ flowchart LR
    `CALL hive.system.sync_partition_metadata('raw', '<tabla>', 'ADD')`, el equivalente a `MSCK REPAIR TABLE`:
    el Hive Metastore queda actualizado con las particiones nuevas.
 4. **`check_raw_not_empty`** — smoke test: falla el DAG si la zona raw quedó vacía.
-5. **`dbt_seed` → `dbt_run` → `dbt_test` → `dbt_docs_generate`** — dbt materializa staging como vistas y marts
-   como tablas Parquet gestionadas; ejecuta ~40 tests (unique, not_null, relationships, accepted_values,
-   rangos y dos tests singulares de cuadratura) y regenera el sitio de documentación.
+5. **`clean_seed_locations`** — vacía en S3 el prefijo del seed. Hace falta porque en este stack
+   `DROP TABLE` borra la tabla del metastore pero deja los Parquet huérfanos, y el `CREATE` siguiente
+   fallaría con `HIVE_PATH_ALREADY_EXISTS`.
+6. **`dbt_deps` → `dbt_seed` → `dbt_run` → `dbt_test` → `dbt_docs_generate`** — dbt instala `dbt_utils`,
+   materializa staging como vistas y marts como tablas Parquet gestionadas; ejecuta cerca de 50 tests
+   (unique, not_null, relationships, accepted_values, rangos y dos tests singulares de cuadratura) y
+   regenera el sitio de documentación.
+
+En total el DAG encadena **10 tareas**.
 
 ## 4. Decisiones de diseño (y por qué)
 
@@ -76,9 +82,12 @@ flowchart LR
 
 ## 5. Limitaciones conocidas (hablar de ellas en la entrevista suma puntos)
 
-- El stack levanta 10 contenedores: requiere ~8 GB de RAM libres. Se puede recortar quitando el worker de Spark.
-- Spark corre en modo *standalone* de 1 worker (2 cores / 2 GB), suficiente para el demo; en producción sería
-  EMR / Dataproc / Kubernetes con autoscaling.
+- El stack levanta 10 contenedores permanentes (más 3 de inicialización): requiere ~8 GB de RAM libres.
+  Se puede recortar quitando el worker de Spark o bajando el heap de Trino (`config/trino/jvm.config`).
+- Spark corre en modo *standalone* de 1 worker (**2 cores / 1 GB**, `SPARK_WORKER_MEMORY`), suficiente para
+  el demo; en producción sería EMR / Dataproc / Kubernetes con autoscaling.
+- Trino arranca con 2 GB de heap (`-Xmx2G`) y el metastore usa un `warehouse.dir` local: en este montaje
+  el metastore sólo guarda metadatos, y quien escribe/lee el Parquet en MinIO es Spark y Trino.
 - El metastore usa PostgreSQL sin alta disponibilidad y comparte instancia con Airflow.
 - No hay capa de tablas transaccionales (Iceberg/Delta): la escritura es *overwrite* de partición. El siguiente
   paso natural del proyecto es migrar `lakehouse/` a **Apache Iceberg** con Trino, lo que habilitaría

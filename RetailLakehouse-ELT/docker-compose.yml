@@ -330,7 +330,10 @@ services:
     container_name: rl-seed-postgres
     profiles: ["tools"]
     entrypoint: ["/bin/bash", "-c"]
-    command: python /opt/airflow/scripts/seed_postgres.py --data-dir /opt/airflow/data/raw
+    # Importante: el command va ENTRE COMILLAS. Si se deja sin comillas, compose lo
+    # parte en varios argumentos y /bin/bash -c solo recibe "python" (arranca el REPL,
+    # sale con codigo 0 y NO carga ningun dato).
+    command: "python /opt/airflow/scripts/seed_postgres.py --data-dir /opt/airflow/data/raw"
     depends_on:
       postgres-source:
         condition: service_healthy
