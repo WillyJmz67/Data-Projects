@@ -1,0 +1,46 @@
+# Global ignores for Data-Projects monorepo
+
+# Virtual Environments
+venv/
+.venv/
+env/
+*/venv/
+*/.venv/
+*/env/
+
+# Python Cache
+__pycache__/
+*/__pycache__/
+*.py[cod]
+*/*.py[cod]
+.pytest_cache/
+*/.pytest_cache/
+.ipynb_checkpoints/
+*/.ipynb_checkpoints/
+
+# IDE / Editor
+.vscode/
+.idea/
+*/.idea/
+*.swp
+*.swo
+
+# Operating System
+.DS_Store
+Thumbs.db
+ehthumbs.db
+
+# Android build outputs & local config
+OpenShelfReader/.gradle/
+OpenShelfReader/build/
+OpenShelfReader/app/build/
+OpenShelfReader/local.properties
+OpenShelfReader/.kotlin/
+OpenShelfReader/*.iml
+
+# Database & local secrets
+*.db
+*.sqlite3
+.env
+.env.local
+*.env

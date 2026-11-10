@@ -22,10 +22,15 @@ El objetivo de este repositorio es demostrar versatilidad técnica, capacidad de
 
 | Proyecto | Categoría | Tecnologías |
 | :--- | :--- | :--- |
-| [Fraud Detection](./projects/fraud_detection/) | Big Data | PySpark, MLlib |
-| [Sentiment Analysis](./projects/amazon_nlp/) | Data Science | PySpark, NLP |
-| [Sales Dashboard](./projects/bi_sales/) | BI | PowerBI, Tableau |
-| [Process Automation](./projects/n8n_workflows/) | Automation | n8n, Make, KNIME |
+| [Data Lake Governance Stack](./Data%20Lake%20Governance%20Stack/) | Data Engineering & Governance | Great Expectations, DuckDB, Superset, Medallion Architecture |
+| [Kmine Projects](./Kmine%20Projects/) | Workflow Automation | KNIME, Machine Learning, Churn Prediction |
+| [Nasa Motor ETL Pred](./Nasa%20Motor%20ETL%20Pred/) | MLOps & Predictive Maintenance | Airflow, PostgreSQL, Scikit-learn, Power BI, NASA CMAPSS |
+| [NasaHTTP](./NasaHTTP/) | Big Data & Analytics | PySpark, Log Parsing, Apache Spark, Traffic Analytics |
+| [OpenShelfReader](./OpenShelfReader/) | Mobile & Computer Vision | Android, Kotlin, CameraX, ML Kit, Jetpack Compose |
+| [PaySim](./PaySim/) | Big Data & Fraud Detection | PySpark, Machine Learning, Anomaly Detection |
+| [Pred_DemandaRetail](./Pred_DemandaRetail/) | Data Science & Forecasting | Python, Feature Engineering, XGBoost / Scikit-learn, FastAPI |
+| [RetailLakehouse-ELT](./RetailLakehouse-ELT/) | Modern Data Lakehouse | PostgreSQL, Apache Spark, Apache Hive, dbt, Trino, Docker |
+| [streaming-pipeline](./streaming-pipeline/) | Real-Time Data Streaming | Apache Flink, Spark Streaming, Kafka, Prometheus, Grafana |
 
 ---
 
