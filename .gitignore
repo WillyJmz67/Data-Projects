@@ -38,6 +38,10 @@ OpenShelfReader/local.properties
 OpenShelfReader/.kotlin/
 OpenShelfReader/*.iml
 
+# Standalone git backups
+RetailLakehouse-ELT/.git_standalone_backup/
+*/.git_standalone_backup/
+
 # Database & local secrets
 *.db
 *.sqlite3
