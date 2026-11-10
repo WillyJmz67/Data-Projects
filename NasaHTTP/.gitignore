@@ -1,0 +1,21 @@
+# Entorno
+venv/
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.ipynb_checkpoints/
+
+# Datos: el access.log pesa ~168 MB y no es redistribuible (dataset de Datacamp).
+# Se usa data/* en vez de data/ para poder re-incluir el .gitkeep.
+data/*
+!data/.gitkeep
+
+# Salidas generadas por el pipeline (~157 MB el CSV completo)
+output/*
+!output/.gitkeep
+
+# Spark
+spark-warehouse/
+metastore_db/
+derby.log

@@ -1,0 +1,5 @@
+# PySpark 3.5.x requiere Java 8/11/17 (Java 21 puede funcionar, ver README).
+pyspark==3.5.3
+pandas>=2.0
+matplotlib>=3.7
+pytest>=8.0
